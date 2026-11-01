@@ -12,6 +12,7 @@ RUN npm install
 COPY . .
 
 # Expose port (Railway injects PORT dynamically)
+ENV PORT=5000
 EXPOSE 5000
 
 # Start Express server
