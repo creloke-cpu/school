@@ -1,26 +1,14 @@
 version: '3.8'
 
 services:
-  backend:
+  app:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
-    container_name: backend_container
+    container_name: node_react_app
     ports:
       - "5000:5000"
-    env_file:
-      - ./backend/.env
-    restart: unless-stopped
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        - VITE_API_URL=http://localhost:5000
-    container_name: frontend_container
-    ports:
-      - "3000:3000"
-    depends_on:
-      - backend
+    environment:
+      - PORT=5000
+      - NODE_ENV=production
     restart: unless-stopped
