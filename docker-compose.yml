@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   app:
     build:
@@ -10,5 +8,32 @@ services:
       - "5000:5000"
     environment:
       - PORT=5000
-      - NODE_ENV=production
+      - NODE_ENV=development
+      - DATABASE_URL=postgres://school:school@db:5432/school
+      - WEB_ORIGIN=http://localhost:5000
+      - DEV_AUTH_LINKS=true
+      - AUTH_RATE_LIMIT=20
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    container_name: school_postgres
+    environment:
+      POSTGRES_USER: school
+      POSTGRES_PASSWORD: school
+      POSTGRES_DB: school
+    ports:
+      - "5432:5432"
+    volumes:
+      - school_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U school -d school"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  school_postgres_data:

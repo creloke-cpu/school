@@ -31,6 +31,40 @@ d:\School\
 
 ---
 
+## Local development with PostgreSQL
+
+Start the app and database together:
+
+```bash
+docker compose up --build
+```
+
+The backend uses `DATABASE_URL=postgres://school:school@db:5432/school`
+inside Compose. To run the backend directly on the host, copy
+`backend/.env.example` to `backend/.env`; that configuration connects to
+PostgreSQL on `localhost`.
+
+The database-backed API exposes:
+
+- `GET /api/db/health` to verify the database connection
+- `GET /api/records` to list records
+- `POST /api/records` with `{ "name": "Example" }` to create a record
+
+Migrations in `backend/migrations` run automatically at startup (or with
+`npm run migrate`). They preserve the original integer-key tables while adding
+roles, student/instructor profiles, lesson types, availability, bookings,
+payments, and audit logging. Demo lesson types and an instructor are seeded idempotently.
+
+Authentication is passwordless and database-backed. A user is created or
+updated when a sign-in link is requested, and one-time links expire after 15
+minutes. Successful verification creates a secure 30-day HTTP-only session.
+Development links are returned only when `DEV_AUTH_LINKS=true` and
+`NODE_ENV` is not `production`. Configure `WEB_ORIGIN` to the exact allowed
+frontend origin. The API also provides `/api/health` and `/api/ready`; all
+responses include a request ID and auth endpoints are rate limited.
+
+---
+
 ## 🚂 Deploy to Railway (Step-by-Step)
 
 ### Option 1: Via GitHub (Recommended)
