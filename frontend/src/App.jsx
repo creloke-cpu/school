@@ -239,6 +239,9 @@ function InstructorDashboard({ contact, user, onSignOut }) {
   };
 
   useEffect(loadOverview, []);
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [activeTab]);
 
   const updateBooking = async (booking, status) => {
     try {
@@ -278,7 +281,7 @@ function InstructorDashboard({ contact, user, onSignOut }) {
           <button className="user-menu-button" type="button" aria-label="Open user menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>
             <span className="user-avatar">{initials}</span><span className="burger-icon"><i /><i /><i /></span>
           </button>
-          {menuOpen && <div className="user-menu"><strong>{profile.display_name}</strong><span>{contact}</span><button type="button" onClick={() => { setActiveTab('account'); setMenuOpen(false); }}>Profile</button><button type="button" onClick={() => setActionMessage('Instructor help is available from the support centre.')}>Help</button><button type="button" onClick={onSignOut}>Sign out</button></div>}
+          {menuOpen && <div className="user-menu"><strong>{profile.display_name}</strong><span>{contact}</span><button type="button" onClick={() => { setActiveTab('account'); setMenuOpen(false); }}>Profile</button><button type="button" onClick={() => { setMenuOpen(false); setActionMessage('Your instructor inbox is up to date.'); }}>Inbox</button><button type="button" onClick={() => { setMenuOpen(false); setActionMessage('Instructor help is available from the support centre.'); }}>Help</button><button type="button" onClick={() => { setMenuOpen(false); setActionMessage('Safety guidance and driving support are available here.'); }}>Safety</button><button type="button" onClick={onSignOut}>Sign out</button></div>}
         </div>
       </header>
       <div className="dashboard-content">
