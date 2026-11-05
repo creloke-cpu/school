@@ -6,7 +6,7 @@ const API_BASE = import.meta.env.VITE_API_URL || '';
 const footerLinks = [
   ['FAQ', '#faq'],
   ['Help Centre', '#help'],
-  ['Crelo Shop', '#shop'],
+  ['FirstGear Shop', '#shop'],
   ['Terms of Use', '#terms'],
   ['Privacy', '#privacy'],
   ['Cookie Preferences', '#cookies'],
@@ -46,7 +46,7 @@ export default function App() {
   const continueSignIn = (event) => {
     event.preventDefault();
     if (!contact.trim()) {
-      setError('Please enter a valid email address or mobile number.');
+      setError('Please enter a valid email address.');
       return;
     }
     setError('');
@@ -93,7 +93,7 @@ export default function App() {
   };
 
   if (authLoading && !user) {
-    return <main className="page"><p className="loading-message">Loading Crelo...</p></main>;
+    return <main className="page"><p className="loading-message">Loading FirstGear...</p></main>;
   }
 
   if (dashboard) {
@@ -106,16 +106,16 @@ export default function App() {
   return (
     <main className="page">
       <header className="header">
-        <a className="logo" href="/" aria-label="Crelo home">CRELO</a>
+        <a className="logo" href="/" aria-label="FirstGear home">FIRSTGEAR</a>
       </header>
 
       <section className="login-card" aria-labelledby="login-title">
         {linkSent ? (
           <section aria-labelledby="link-title">
-            <h1 id="link-title">Tap the link in your email</h1>
+            <h1 id="link-title">Tap the sign-in link</h1>
             <p className="intro">
-              We sent a sign-up link to the email address below. Simply tap the
-              link to create your account.
+              We sent a one-time sign-in link to the contact below. Simply tap
+              the link to continue.
             </p>
             <div className="review-contact-row">
               <p className="review-contact">{contact}</p>
@@ -124,7 +124,7 @@ export default function App() {
               </button>
             </div>
             <p className="resend-copy">
-              Didn&apos;t get a link? Check your spam or{' '}
+              Didn&apos;t get a link? Check your spam or messages, then{' '}
               <button
                 className="inline-link"
                 type="button"
@@ -146,12 +146,12 @@ export default function App() {
             <p className="intro">Or get started with a new account.</p>
 
             <form onSubmit={continueSignIn} noValidate>
-              <label htmlFor="contact">Email or mobile number</label>
+              <label htmlFor="contact">Email address</label>
               <input
                 id="contact"
                 ref={contactInputRef}
                 name="contact"
-                type="text"
+                type="email"
                 autoComplete="email"
                 value={contact}
                 onChange={(event) => {
@@ -185,7 +185,7 @@ export default function App() {
                 checked={specialOffers}
                 onChange={(event) => setSpecialOffers(event.target.checked)}
               />
-              <span>Please do not email me Crelo special offers</span>
+              <span>Please do not email me FirstGear special offers</span>
             </label>
             <button className="continue-button" type="button" onClick={requestLink} disabled={authLoading}>
               Continue
@@ -270,7 +270,7 @@ function InstructorDashboard({ contact, user, onSignOut }) {
   return (
     <main className="dashboard-page instructor-portal">
       <header className="dashboard-header">
-        <a className="logo" href="/" aria-label="Crelo home">CRELO</a>
+        <a className="logo" href="/" aria-label="FirstGear home">FIRSTGEAR</a>
         <nav className="dashboard-nav" aria-label="Instructor navigation">
           <button className={activeTab === 'home' ? 'active' : ''} type="button" onClick={() => setActiveTab('home')}>Overview</button>
           <button className={activeTab === 'schedule' ? 'active' : ''} type="button" onClick={() => setActiveTab('schedule')}>My schedule</button>
@@ -335,7 +335,7 @@ function InstructorAccount({ profile, onSaved }) {
       setSaving(false);
     }
   };
-  return <section className="dashboard-panel app-view account-editor"><p className="eyebrow">INSTRUCTOR ACCOUNT</p><h1>Edit profile</h1><p className="view-intro">Keep your contact details up to date so Crelo and your students can reach you.</p><form className="profile-form" onSubmit={save}><label htmlFor="instructor-name">Name</label><input id="instructor-name" value={form.display_name} onChange={update('display_name')} required /><label htmlFor="instructor-email">Email</label><input id="instructor-email" type="email" value={form.contact} onChange={update('contact')} required /><label htmlFor="instructor-phone">Phone number</label><input id="instructor-phone" type="tel" value={form.phone} onChange={update('phone')} placeholder="+44 7000 000000" /><label htmlFor="instructor-license">Licence number</label><input id="instructor-license" value={form.license_number} onChange={update('license_number')} /><label htmlFor="instructor-bio">Bio</label><textarea id="instructor-bio" value={form.bio} onChange={update('bio')} rows="4" placeholder="Tell students about your experience" /><button className="book-button" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save profile'}</button>{message && <p className="form-success" role="status">{message}</p>}{error && <p className="form-error" role="alert">{error}</p>}</form></section>;
+  return <section className="dashboard-panel app-view account-editor"><p className="eyebrow">INSTRUCTOR ACCOUNT</p><h1>Edit profile</h1><p className="view-intro">Keep your contact details up to date so FirstGear and your students can reach you.</p><form className="profile-form" onSubmit={save}><label htmlFor="instructor-name">Name</label><input id="instructor-name" value={form.display_name} onChange={update('display_name')} required /><label htmlFor="instructor-email">Email</label><input id="instructor-email" type="email" value={form.contact} onChange={update('contact')} required /><label htmlFor="instructor-phone">Phone number</label><input id="instructor-phone" type="tel" value={form.phone} onChange={update('phone')} placeholder="+44 7000 000000" /><label htmlFor="instructor-license">Licence number</label><input id="instructor-license" value={form.license_number} onChange={update('license_number')} /><label htmlFor="instructor-bio">Bio</label><textarea id="instructor-bio" value={form.bio} onChange={update('bio')} rows="4" placeholder="Tell students about your experience" /><button className="book-button" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save profile'}</button>{message && <p className="form-success" role="status">{message}</p>}{error && <p className="form-error" role="alert">{error}</p>}</form></section>;
 }
 
 function InstructorAvailability({ availability, blocks, onSaved }) {
@@ -497,7 +497,7 @@ function StudentDashboard({ contact, onSignOut }) {
   }
 
   if (!overview) {
-    return <main className="dashboard-page"><p className="loading-message">Loading your Crelo student portal...</p></main>;
+    return <main className="dashboard-page"><p className="loading-message">Loading your FirstGear student portal...</p></main>;
   }
 
   const lesson = overview.nextLesson;
@@ -588,7 +588,7 @@ function StudentDashboard({ contact, onSignOut }) {
   return (
     <main className="dashboard-page">
       <header className="dashboard-header">
-        <a className="logo" href="/" aria-label="Crelo home">CRELO</a>
+        <a className="logo" href="/" aria-label="FirstGear home">FIRSTGEAR</a>
         <nav className="dashboard-nav" aria-label="Student navigation">
           <a className="active" href="#overview">Overview</a>
           <a href="#lessons">My lessons</a>
@@ -614,7 +614,7 @@ function StudentDashboard({ contact, onSignOut }) {
               <button type="button" onClick={() => openPanel('instructor')}>Profile</button>
               <button type="button" onClick={() => showAction('Your inbox is up to date.')}>Inbox</button>
               <button type="button" onClick={() => openPanel('payments')}>Wallet</button>
-              <button type="button" onClick={() => showAction('Crelo help is available from the support centre.')}>Help</button>
+              <button type="button" onClick={() => showAction('FirstGear help is available from the support centre.')}>Help</button>
               <button type="button" onClick={() => showAction('Safety guidance and driving support are available here.')}>Safety</button>
               <button type="button" onClick={onSignOut}>Sign out</button>
             </div>
@@ -728,7 +728,7 @@ function StudentDashboard({ contact, onSignOut }) {
         </section>
         <section className="notification-strip">
           <div className="notification-bell">!</div>
-          <div><strong>{overview.notifications.length ? overview.notifications[0].title : 'You are all set'}</strong><p>{overview.notifications.length ? overview.notifications[0].message : 'Your Crelo account is up to date. We will notify you about upcoming lessons.'}</p></div>
+          <div><strong>{overview.notifications.length ? overview.notifications[0].title : 'You are all set'}</strong><p>{overview.notifications.length ? overview.notifications[0].message : 'Your FirstGear account is up to date. We will notify you about upcoming lessons.'}</p></div>
           <button className="text-button" type="button" onClick={() => setActivePanel('notifications')}>View notifications →</button>
         </section>
         {activePanel && (
@@ -737,7 +737,7 @@ function StudentDashboard({ contact, onSignOut }) {
           }}>
           <section className={`dashboard-panel detail-view${['message', 'instructor'].includes(activePanel) ? ' message-dialog' : ''}`} role={['message', 'instructor'].includes(activePanel) ? 'dialog' : undefined} aria-modal={['message', 'instructor'].includes(activePanel) ? 'true' : undefined} aria-live="polite">
             <div className="panel-heading">
-              <div><p className="eyebrow">CRELO</p><h2>
+              <div><p className="eyebrow">FIRSTGEAR</p><h2>
                 {activePanel === 'message' && `Message ${instructor}`}
                 {activePanel === 'instructor' && 'Instructor profile'}
                 {activePanel === 'payments' && 'Payment history'}
@@ -753,7 +753,7 @@ function StudentDashboard({ contact, onSignOut }) {
                 <button className="book-button" type="submit">Send message</button>
               </form>
             )}
-            {activePanel === 'instructor' && <div className="profile-detail"><span className="large-avatar">{instructor.slice(0, 2).toUpperCase()}</span><h3>{instructor}</h3><p>{lesson?.instructor_bio || 'Experienced Crelo driving instructor.'}</p><p className="muted">Assigned to your upcoming lessons.</p><button className="book-button" type="button" onClick={() => setActivePanel('message')}>Message {instructor}</button></div>}
+            {activePanel === 'instructor' && <div className="profile-detail"><span className="large-avatar">{instructor.slice(0, 2).toUpperCase()}</span><h3>{instructor}</h3><p>{lesson?.instructor_bio || 'Experienced FirstGear driving instructor.'}</p><p className="muted">Assigned to your upcoming lessons.</p><button className="book-button" type="button" onClick={() => setActivePanel('message')}>Message {instructor}</button></div>}
             {activePanel === 'payments' && <div className="detail-list">{overview.payments.length ? overview.payments.map((payment) => <div className="detail-row" key={payment.id}><span>{new Date(payment.created_at).toLocaleDateString()}</span><strong>£{(payment.amount_cents / 100).toFixed(2)}</strong><span className="status-pill">{payment.status}</span></div>) : <p className="muted">No payment history yet.</p>}</div>}
             {activePanel === 'history' && <div className="detail-list">{overview.bookings.length ? overview.bookings.map((booking) => <div className="detail-row" key={booking.id}><span>{new Date(booking.starts_at).toLocaleDateString()}</span><strong>{booking.lesson_type}</strong><span className="status-pill">{booking.status}</span></div>) : <p className="muted">No lesson history yet.</p>}</div>}
             {activePanel === 'notifications' && <div className="detail-list">{overview.notifications.length ? overview.notifications.map((notification) => <div className="notification-item" key={notification.id}><strong>{notification.title}</strong><p>{notification.message}</p><span>{new Date(notification.created_at).toLocaleDateString()}</span></div>) : <p className="muted">You have no notifications.</p>}</div>}
@@ -824,7 +824,7 @@ function StudentDashboard({ contact, onSignOut }) {
           <section className="app-view" aria-labelledby="account-view-title">
             <p className="eyebrow">ACCOUNT</p>
             <h1 id="account-view-title">Your account</h1>
-            <p className="view-intro">Manage your Crelo profile and get support.</p>
+            <p className="view-intro">Manage your FirstGear profile and get support.</p>
             <div className="account-card">
               <div className="large-avatar">S</div>
               <div><h2>{overview.profile?.display_name || 'Student'}</h2><p>{contact}</p></div>
@@ -832,7 +832,7 @@ function StudentDashboard({ contact, onSignOut }) {
             <div className="account-links">
               <button type="button" onClick={() => showAction('Your inbox is up to date.')}>Inbox <span>›</span></button>
               <button type="button" onClick={() => showAction('Wallet and payment history are available from your account.')}>Wallet <span>›</span></button>
-              <button type="button" onClick={() => showAction('Crelo help is available from the support centre.')}>Help <span>›</span></button>
+              <button type="button" onClick={() => showAction('FirstGear help is available from the support centre.')}>Help <span>›</span></button>
               <button type="button" onClick={() => showAction('Safety guidance and driving support are available here.')}>Safety <span>›</span></button>
               <button type="button" onClick={onSignOut}>Sign out <span>›</span></button>
             </div>

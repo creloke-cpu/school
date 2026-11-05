@@ -60,8 +60,11 @@ updated when a sign-in link is requested, and one-time links expire after 15
 minutes. Successful verification creates a secure 30-day HTTP-only session.
 Development links are returned only when `DEV_AUTH_LINKS=true` and
 `NODE_ENV` is not `production`. Configure `WEB_ORIGIN` to the exact allowed
-frontend origin. The API also provides `/api/health` and `/api/ready`; all
-responses include a request ID and auth endpoints are rate limited.
+frontend origin. Production email-only delivery uses Resend. Set
+`AUTH_LINK_ORIGIN`, `RESEND_API_KEY`, and `AUTH_EMAIL_FROM` in the backend
+environment. `AUTH_EMAIL_FROM` must use a domain verified with Resend. The API also
+provides `/api/health` and `/api/ready`; all responses include a request ID and
+auth endpoints are rate limited.
 
 ---
 

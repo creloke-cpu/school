@@ -79,7 +79,7 @@ router.get('/student/overview', requireAuth, requireRole('student'), asyncHandle
   await pool.query(
     `INSERT INTO bookings(student_id, instructor_id, lesson_type_id, starts_at, ends_at, status, notes)
      SELECT $1, instructor.id, lesson.id, NOW() + INTERVAL '2 days',
-       NOW() + INTERVAL '2 days 1 hour', 'confirmed', 'Your first Crelo lesson'
+       NOW() + INTERVAL '2 days 1 hour', 'confirmed', 'Your first FirstGear lesson'
      FROM users instructor
      CROSS JOIN lesson_types lesson
      WHERE instructor.contact='demo.instructor@roadready.local'
