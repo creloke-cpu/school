@@ -35,7 +35,11 @@ const sendEmail = async (contact, link) => {
   });
   if (!response.ok) {
     const detail = await response.text();
-    throw new Error(`Email provider rejected the message (${response.status}): ${detail.slice(0, 300)}`);
+    const error = new Error('Email delivery failed. Check the Resend API key and verified sender address.');
+    error.status = 502;
+    error.providerStatus = response.status;
+    error.providerDetail = detail.slice(0, 300);
+    throw error;
   }
 };
 

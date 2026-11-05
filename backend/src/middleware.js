@@ -3,7 +3,7 @@ import { pool } from './db.js';
 export const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 export function requestId(req, res, next) { req.id = req.get('x-request-id') || crypto.randomUUID(); res.set('x-request-id', req.id); next(); }
 export function errorHandler(error, req, res, next) {
-  console.error({ requestId: req.id, error: error.message });
+  console.error({ requestId: req.id, error: error.message, providerStatus: error.providerStatus, providerDetail: error.providerDetail });
   if (res.headersSent) return next(error);
   const status = error.status || (error.code === '23505' ? 409 : 500);
   res.status(status).json({ error: status === 500 ? 'Internal server error' : error.message, requestId: req.id });
