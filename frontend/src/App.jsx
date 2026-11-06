@@ -743,9 +743,9 @@ function StudentDashboard({ contact, onSignOut }) {
   const selectTab = (tab) => {
     setActiveTab(tab);
     setUserMenuOpen(false);
-    if (tab === 'home') showAction('You are viewing your student overview.', 'overview');
-    if (tab === 'book') showAction('Lesson booking is ready. Choose a lesson time with your instructor.', 'lessons');
-    if (tab === 'activity') showAction(`${overview.bookings.length} lesson booking(s) loaded from PostgreSQL.`, 'history');
+    if (tab === 'home') setActionMessage('You are viewing your student overview.');
+    if (tab === 'book') setActionMessage('Lesson booking is ready.');
+    if (tab === 'activity') setActionMessage(`${overview.bookings.length} lesson booking(s) loaded from PostgreSQL.`);
   };
   const openPanel = (panel) => {
     setActiveTab('home');
@@ -847,10 +847,10 @@ function StudentDashboard({ contact, onSignOut }) {
       <header className="dashboard-header">
         <a className="logo" href="/" aria-label="FirstGear home">FIRSTGEAR</a>
         <nav className="dashboard-nav" aria-label="Student navigation">
-          <a className="active" href="#overview">Overview</a>
-          <a href="#lessons">My lessons</a>
-          <a href="#progress">Progress</a>
-          <a href="#payments">Payments</a>
+          <button className={activeTab === 'home' ? 'active' : ''} type="button" onClick={() => selectTab('home')}>Overview</button>
+          <button className={activeTab === 'activity' ? 'active' : ''} type="button" onClick={() => selectTab('activity')}>My lessons</button>
+          <button className={activeTab === 'home' ? 'active' : ''} type="button" onClick={() => { setActiveTab('home'); setActionMessage('Your progress is shown in your overview.'); }}>Progress</button>
+          <button className={activeTab === 'account' ? 'active' : ''} type="button" onClick={() => openPanel('payments')}>Payments</button>
         </nav>
         <div className="profile-actions" ref={menuRef}>
           <span className="student-name">{overview.profile?.phone || contact}</span>
