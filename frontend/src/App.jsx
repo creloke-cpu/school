@@ -737,7 +737,6 @@ function StudentDashboard({ contact, onSignOut }) {
   const instructor = lesson?.instructor_name || 'Not assigned';
   const completedLessons = overview.progress.completedLessons;
   const progressPercent = overview.progress.overallPercent;
-  const balance = overview.payments.reduce((total, payment) => total + (payment.status === 'paid' ? payment.amount_cents : 0), 0);
   const showAction = (message, target) => {
     setActionMessage(message);
     if (target) document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -862,7 +861,7 @@ function StudentDashboard({ contact, onSignOut }) {
           <button className={activeTab === 'home' ? 'active' : ''} type="button" onClick={() => selectTab('home')}>Overview</button>
           <button className={activeTab === 'activity' ? 'active' : ''} type="button" onClick={() => selectTab('activity')}>My lessons</button>
           <button className={activeTab === 'home' ? 'active' : ''} type="button" onClick={() => { setActiveTab('home'); setActionMessage('Your progress is shown in your overview.'); }}>Progress</button>
-          <button className={activeTab === 'account' ? 'active' : ''} type="button" onClick={() => openPanel('payments')}>Payments</button>
+          <button className={activeTab === 'payments' ? 'active' : ''} type="button" onClick={() => selectTab('payments')}>Payments</button>
         </nav>
         <div className="profile-actions" ref={menuRef}>
           <span className="student-name">{overview.profile?.phone || contact}</span>
@@ -882,7 +881,7 @@ function StudentDashboard({ contact, onSignOut }) {
               <span>{contact}</span>
               <button type="button" onClick={() => menuAction(() => setActiveTab('account'))}>Profile</button>
               <button type="button" onClick={() => menuAction(() => openPanel('notifications'))}>Inbox</button>
-              <button type="button" onClick={() => menuAction(() => openPanel('payments'))}>Wallet</button>
+              <button type="button" onClick={() => menuAction(() => selectTab('payments'))}>Wallet</button>
               <button type="button" onClick={() => menuAction(() => showAction('FirstGear help is available from the support centre.'))}>Help</button>
               <button type="button" onClick={() => menuAction(() => showAction('Safety guidance and driving support are available here.'))}>Safety</button>
               <button type="button" onClick={() => menuAction(onSignOut)}>Sign out</button>
@@ -981,11 +980,6 @@ function StudentDashboard({ contact, onSignOut }) {
             <p className="muted">{lesson?.instructor_bio || 'Your instructor details will appear when a lesson is booked.'}</p>
             <div className="instructor-actions">            <button className="book-button" type="button" onClick={() => setActivePanel('message')}>Message instructor</button><button className="text-button" type="button" onClick={() => setActivePanel('instructor')}>View profile</button></div>
           </section>
-          <section className="dashboard-panel" id="payments">
-            <div className="panel-heading"><div><p className="eyebrow">PAYMENTS</p><h2>Paid to date</h2></div><strong>£{(balance / 100).toFixed(2)}</strong></div>
-            <p className="muted">{overview.payments.length ? `${overview.payments.length} payment record(s)` : 'No payments recorded yet.'}</p>
-            <button className="text-button" type="button" onClick={() => setActivePanel('payments')}>View payment history →</button>
-          </section>
         </div>
 
         <section className="dashboard-panel history-panel" id="history">
@@ -1023,32 +1017,6 @@ function StudentDashboard({ contact, onSignOut }) {
               </form>
             )}
             {activePanel === 'instructor' && <div className="profile-detail"><span className="large-avatar">{instructor.slice(0, 2).toUpperCase()}</span><h3>{instructor}</h3><p>{lesson?.instructor_bio || 'Experienced FirstGear driving instructor.'}</p><p className="muted">Assigned to your upcoming lessons.</p><button className="book-button" type="button" onClick={() => setActivePanel('message')}>Message {instructor}</button></div>}
-            {activePanel === 'payments' && <div className="payment-panel">
-              <div className="bank-details">
-                <p className="eyebrow">BANK TRANSFER</p>
-                <h3>Pay FirstGear by bank transfer</h3>
-                <p className="muted">Use these dummy details for the prototype. Replace them with your real business account before launch.</p>
-                <dl>
-                  <div><dt>Account name</dt><dd>FirstGear Driving School</dd></div>
-                  <div><dt>Sort code</dt><dd>20-45-67</dd></div>
-                  <div><dt>Account number</dt><dd>12345678</dd></div>
-                  <div><dt>Amount</dt><dd>£45.00 per hour</dd></div>
-                </dl>
-              </div>
-              <form className="payment-reference-form" onSubmit={submitPaymentReference}>
-                <label htmlFor="payment-reference">Bank transfer reference</label>
-                <input id="payment-reference" value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} placeholder="e.g. FG-STEVE-001" maxLength={40} />
-                <p className="muted">After paying, enter the reference from your bank receipt. FirstGear will verify it before marking the payment as paid.</p>
-                <button className="book-button" type="submit">Submit reference</button>
-                {paymentReferenceStatus && <p className="form-success" role="status">{paymentReferenceStatus}</p>}
-              </form>
-              <div className="apple-pay-info">
-                <strong>Apple Pay</strong>
-                <p className="muted">For real Apple Pay, we should connect a Stripe Payment Element and verify payments with a server-side webhook. It cannot be safely enabled with dummy account details.</p>
-                <button className="text-button" type="button" disabled>Apple Pay coming soon</button>
-              </div>
-              <div className="detail-list">{overview.payments.length ? overview.payments.map((payment) => <div className="detail-row" key={payment.id}><span>{new Date(payment.created_at).toLocaleDateString()}</span><strong>£{(payment.amount_cents / 100).toFixed(2)}</strong><span className="status-pill">{payment.status}</span></div>) : <p className="muted">No payment history yet.</p>}</div>
-            </div>}
             {activePanel === 'history' && <div className="detail-list">{overview.bookings.length ? overview.bookings.map((booking) => <div className="detail-row" key={booking.id}><span>{new Date(booking.starts_at).toLocaleDateString()}</span><strong>{booking.lesson_type}</strong><span className="status-pill">{booking.status}</span></div>) : <p className="muted">No lesson history yet.</p>}</div>}
             {activePanel === 'notifications' && <div className="detail-list">{overview.notifications.length ? overview.notifications.map((notification) => <div className="notification-item" key={notification.id}><strong>{notification.title}</strong><p>{notification.message}</p><span>{new Date(notification.created_at).toLocaleDateString()}</span></div>) : <p className="muted">You have no notifications.</p>}</div>}
           </section>
@@ -1102,6 +1070,40 @@ function StudentDashboard({ contact, onSignOut }) {
           </section>
         )}
 
+        {activeTab === 'payments' && (
+          <section className="app-view payment-page" aria-labelledby="payments-view-title">
+            <p className="eyebrow">PAYMENTS</p>
+            <h1 id="payments-view-title">Make a payment</h1>
+            <p className="view-intro">Pay for your FirstGear lessons and submit your bank transfer reference.</p>
+            <div className="payment-panel">
+              <div className="bank-details">
+                <p className="eyebrow">BANK TRANSFER</p>
+                <h3>Pay FirstGear by bank transfer</h3>
+                <p className="muted">Use these dummy details for the prototype. Replace them with your real business account before launch.</p>
+                <dl>
+                  <div><dt>Account name</dt><dd>FirstGear Driving School</dd></div>
+                  <div><dt>Sort code</dt><dd>20-45-67</dd></div>
+                  <div><dt>Account number</dt><dd>12345678</dd></div>
+                  <div><dt>Amount</dt><dd>£45.00 per hour</dd></div>
+                </dl>
+              </div>
+              <form className="payment-reference-form" onSubmit={submitPaymentReference}>
+                <label htmlFor="payment-reference">Bank transfer reference</label>
+                <input id="payment-reference" value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} placeholder="e.g. FG-STEVE-001" maxLength={40} />
+                <p className="muted">After paying, enter the reference from your bank receipt. FirstGear will verify it before marking the payment as paid.</p>
+                <button className="book-button" type="submit">Submit reference</button>
+                {paymentReferenceStatus && <p className="form-success" role="status">{paymentReferenceStatus}</p>}
+              </form>
+              <div className="apple-pay-info">
+                <strong>Apple Pay</strong>
+                <p className="muted">For real Apple Pay, we should connect a Stripe Payment Element and verify payments with a server-side webhook. It cannot be safely enabled with dummy account details.</p>
+                <button className="text-button" type="button" disabled>Apple Pay coming soon</button>
+              </div>
+              <div className="detail-list">{overview.payments.length ? overview.payments.map((payment) => <div className="detail-row" key={payment.id}><span>{new Date(payment.created_at).toLocaleDateString()}</span><strong>£{(payment.amount_cents / 100).toFixed(2)}</strong><span className="status-pill">{payment.status}</span></div>) : <p className="muted">No payment history yet.</p>}</div>
+            </div>
+          </section>
+        )}
+
         {activeTab === 'activity' && (
           <section className="app-view" aria-labelledby="activity-view-title">
             <p className="eyebrow">ACTIVITY</p>
@@ -1131,7 +1133,7 @@ function StudentDashboard({ contact, onSignOut }) {
             </div>
             <div className="account-links">
               <button type="button" onClick={() => showAction('Your inbox is up to date.')}>Inbox <span>›</span></button>
-              <button type="button" onClick={() => showAction('Wallet and payment history are available from your account.')}>Wallet <span>›</span></button>
+              <button type="button" onClick={() => selectTab('payments')}>Wallet <span>›</span></button>
               <button type="button" onClick={() => showAction('FirstGear help is available from the support centre.')}>Help <span>›</span></button>
               <button type="button" onClick={() => showAction('Safety guidance and driving support are available here.')}>Safety <span>›</span></button>
               <button type="button" onClick={onSignOut}>Sign out <span>›</span></button>
