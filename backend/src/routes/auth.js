@@ -54,9 +54,12 @@ router.post('/request-link', asyncHandler(async (req, res) => {
   const raw = crypto.randomBytes(32).toString('hex');
   await pool.query(`INSERT INTO auth_tokens(user_id,token_hash,expires_at) VALUES($1,$2,NOW()+INTERVAL '15 minutes')`, [rows[0].id, hash(raw)]);
   const link = `${getLinkOrigin(req)}/api/auth/verify?token=${raw}`;
-  await sendEmail(contact, link);
   const response = { message: 'If the contact is valid, a sign-in link has been sent.' };
-  if (process.env.NODE_ENV !== 'production' && process.env.DEV_AUTH_LINKS === 'true') response.devLink = `/api/auth/verify?token=${raw}`;
+  if (process.env.NODE_ENV !== 'production' && process.env.DEV_AUTH_LINKS === 'true') {
+    response.devLink = `/api/auth/verify?token=${raw}`;
+  } else {
+    await sendEmail(contact, link);
+  }
   res.json(response);
 }));
 

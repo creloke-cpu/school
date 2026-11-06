@@ -39,6 +39,51 @@ router.get('/admin/instructor-applications', requireAuth, requireRole('admin'), 
      ORDER BY CASE ip.approval_status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,u.display_name`,
   )).rows);
 }));
+router.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  res.json((await pool.query(
+    `SELECT u.id,u.display_name,u.contact,u.created_at,
+      COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL),'{}') roles,
+      ip.approval_status
+     FROM users u
+     LEFT JOIN user_roles ur ON ur.user_id=u.id
+     LEFT JOIN roles r ON r.id=ur.role_id
+     LEFT JOIN instructor_profiles ip ON ip.user_id=u.id
+     GROUP BY u.id,ip.approval_status
+     ORDER BY u.created_at DESC`,
+  )).rows);
+}));
+router.patch('/admin/users/:userId/role', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const userId = id.safeParse(req.params.userId);
+  const data = body(z.object({ role: z.enum(['student', 'instructor', 'admin']) }), req, res);
+  if (!userId.success) return res.status(400).json({ error: 'Invalid user id' });
+  if (!data) return;
+  if (userId.data === req.user.id && data.role !== 'admin') return res.status(400).json({ error: 'You cannot remove your own admin access.' });
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const user = (await client.query('SELECT id FROM users WHERE id=$1 FOR UPDATE', [userId.data])).rows[0];
+    if (!user) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'User not found.' });
+    }
+    await client.query('DELETE FROM user_roles WHERE user_id=$1', [userId.data]);
+    await client.query('INSERT INTO user_roles(user_id,role_id) SELECT $1,id FROM roles WHERE name=$2', [userId.data, data.role]);
+    if (data.role === 'instructor') {
+      await client.query(
+        `INSERT INTO instructor_profiles(user_id,approval_status)
+         VALUES($1,'pending') ON CONFLICT(user_id) DO NOTHING`,
+        [userId.data],
+      );
+    }
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+  res.json({ id: userId.data, role: data.role });
+}));
 router.patch('/admin/instructor-applications/:instructorId', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const instructorId = id.safeParse(req.params.instructorId);
   const data = body(z.object({ approval_status: z.enum(['approved', 'rejected']) }), req, res);

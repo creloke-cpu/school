@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { CalendarDays, CarFront, CheckCircle2, Clock3, Gauge, MapPin, ShieldCheck } from 'lucide-react';
 import './index.css';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -237,7 +238,7 @@ function LandingPage({ onSignIn }) {
       </header>
       <section className="landing-hero">
         <div>
-          <p className="eyebrow">UK DRIVING SCHOOL</p>
+          <p className="eyebrow"><CarFront size={17} aria-hidden="true" /> UK DRIVING SCHOOL</p>
           <h1>Learn to drive with confidence.</h1>
           <p className="landing-lede">Friendly, practical lessons with qualified instructors across the UK. Book your next step towards the open road.</p>
           <div className="landing-actions">
@@ -246,33 +247,57 @@ function LandingPage({ onSignIn }) {
           </div>
         </div>
         <div className="landing-price-card">
-          <span className="eyebrow">POPULAR LESSON</span>
+          <span className="eyebrow"><Gauge size={17} aria-hidden="true" /> POPULAR LESSON</span>
           <strong>£45</strong>
           <span>per hour</span>
           <small>60-minute practical driving lesson</small>
+          <div className="road-lines" aria-hidden="true"><i /><i /><i /></div>
         </div>
       </section>
       <section className="landing-stats" id="lessons">
-        <article><strong>£45/hr</strong><span>Clear, simple pricing</span></article>
-        <article><strong>1-to-1</strong><span>Personal instructor support</span></article>
-        <article><strong>UK-wide</strong><span>Lessons built around you</span></article>
+        <article><Clock3 size={25} aria-hidden="true" /><strong>£45/hr</strong><span>Clear, simple pricing</span></article>
+        <article><ShieldCheck size={25} aria-hidden="true" /><strong>1-to-1</strong><span>Personal instructor support</span></article>
+        <article><MapPin size={25} aria-hidden="true" /><strong>UK-wide</strong><span>Lessons built around you</span></article>
+      </section>
+      <section className="landing-preview">
+        <div className="preview-copy">
+          <p className="eyebrow"><CalendarDays size={17} aria-hidden="true" /> YOUR PROGRESS, AT A GLANCE</p>
+          <h2>Every lesson, next step, and milestone in one calm place.</h2>
+          <p>FirstGear keeps your driving journey simple: book lessons, see your schedule, and stay connected with your instructor.</p>
+          <div className="preview-checks"><span><CheckCircle2 size={17} /> Easy lesson booking</span><span><CheckCircle2 size={17} /> Progress you can see</span></div>
+        </div>
+        <div className="app-screenshot" aria-label="Preview of the FirstGear student dashboard">
+          <div className="screenshot-top"><span className="mini-logo">FIRSTGEAR</span><span className="avatar-dot">S</span></div>
+          <div className="screenshot-greeting"><small>YOUR NEXT LESSON</small><strong>Behind-the-wheel</strong><span>Thursday · 10:00 · 60 minutes</span></div>
+          <div className="screenshot-grid"><div><small>PROGRESS</small><strong>68%</strong><span className="progress-bar"><i /></span></div><div><small>PAID TO DATE</small><strong>£135</strong><span>3 lessons</span></div></div>
+          <div className="screenshot-row"><CalendarDays size={17} /><span>View your full schedule</span><b>›</b></div>
+        </div>
       </section>
       <section className="landing-info">
         <p className="eyebrow">WHY FIRSTGEAR</p>
         <h2>Everything you need to become a safer, more confident driver.</h2>
         <div className="landing-cards">
-          <article><h3>Qualified instructors</h3><p>Learn with experienced driving instructors who make every lesson practical and encouraging.</p></article>
-          <article><h3>Flexible scheduling</h3><p>Find lesson times that fit around work, study, and everyday life.</p></article>
-          <article><h3>Track your progress</h3><p>See your upcoming lessons, completed practice, and next milestones in one place.</p></article>
+          <article><div className="feature-icon"><ShieldCheck size={22} /></div><h3>Qualified instructors</h3><p>Learn with experienced driving instructors who make every lesson practical and encouraging.</p></article>
+          <article><div className="feature-icon"><CalendarDays size={22} /></div><h3>Flexible scheduling</h3><p>Find lesson times that fit around work, study, and everyday life.</p></article>
+          <article><div className="feature-icon"><Gauge size={22} /></div><h3>Track your progress</h3><p>See your upcoming lessons, completed practice, and next milestones in one place.</p></article>
         </div>
       </section>
-      <footer className="footer"><p>Ready to get started? <button className="inline-link" type="button" onClick={onSignIn}>Create your account</button></p></footer>
+      <footer className="footer landing-footer">
+        <p>Questions? Call <a href="tel:+447512623380">+44 7512 623380</a></p>
+        <p>Ready to get started? <button className="inline-link" type="button" onClick={onSignIn}>Create your account</button></p>
+        <nav aria-label="Footer links">
+          {footerLinks.map(([label, href]) => (
+            <a key={label} href={href} target="_blank" rel="noreferrer">{label}</a>
+          ))}
+        </nav>
+      </footer>
     </main>
   );
 }
 
 function AdminDashboard({ contact, user, onSignOut }) {
   const [applications, setApplications] = useState([]);
+  const [accounts, setAccounts] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const loadApplications = async () => {
@@ -288,7 +313,15 @@ function AdminDashboard({ contact, user, onSignOut }) {
       setLoading(false);
     }
   };
-  useEffect(() => { loadApplications(); }, []);
+  const loadAccounts = async () => {
+    const response = await fetch(`${API_BASE}/api/admin/users`, { credentials: 'include' });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Unable to load accounts.');
+    setAccounts(result);
+  };
+  useEffect(() => {
+    Promise.all([loadApplications(), loadAccounts()]).catch((requestError) => setError(requestError.message));
+  }, []);
   const decide = async (id, approval_status) => {
     setError('');
     const response = await fetch(`${API_BASE}/api/admin/instructor-applications/${id}`, {
@@ -302,7 +335,22 @@ function AdminDashboard({ contact, user, onSignOut }) {
       setError(result.error || 'Unable to update application.');
       return;
     }
-    loadApplications();
+    await Promise.all([loadApplications(), loadAccounts()]);
+  };
+  const changeRole = async (id, role) => {
+    setError('');
+    const response = await fetch(`${API_BASE}/api/admin/users/${id}/role`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ role }),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      setError(result.error || 'Unable to update account role.');
+      return;
+    }
+    loadAccounts();
   };
   const pending = applications.filter((application) => application.approval_status === 'pending');
   return (
@@ -323,6 +371,15 @@ function AdminDashboard({ contact, user, onSignOut }) {
             <article className="application-row" key={application.id}>
               <div><strong>{application.display_name}</strong><span>{application.contact}</span><small>Licence: {application.license_number || 'Not provided'}</small>{application.bio && <p>{application.bio}</p>}</div>
               <div className="application-status"><span className={`status-pill ${application.approval_status}`}>{application.approval_status}</span>{application.approval_status === 'pending' && <div><button className="book-button compact" type="button" onClick={() => decide(application.id, 'approved')}>Approve</button><button className="text-button" type="button" onClick={() => decide(application.id, 'rejected')}>Reject</button></div>}</div>
+            </article>
+          ))}
+        </section>
+        <section className="dashboard-panel admin-applications admin-accounts">
+          <div className="panel-heading"><div><p className="eyebrow">ACCOUNT MANAGEMENT</p><h2>Upgrade or downgrade accounts</h2></div><button className="text-button" type="button" onClick={loadAccounts}>Refresh</button></div>
+          {accounts.length === 0 ? <p className="muted">No accounts found.</p> : accounts.map((account) => (
+            <article className="application-row account-row" key={account.id}>
+              <div><strong>{account.display_name}</strong><span>{account.contact}</span><small>Joined {new Date(account.created_at).toLocaleDateString()}</small></div>
+              <div className="account-role-control"><span className="status-pill">{account.roles.join(', ')}</span><select value={account.roles.includes('admin') ? 'admin' : account.roles.includes('instructor') ? 'instructor' : 'student'} disabled={account.id === user.id} onChange={(event) => changeRole(account.id, event.target.value)} aria-label={`Change role for ${account.contact}`}><option value="student">Student</option><option value="instructor">Instructor</option><option value="admin">Admin</option></select></div>
             </article>
           ))}
         </section>
