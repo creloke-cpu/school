@@ -19,7 +19,7 @@ export const requireRole = (...roles) => (req, res, next) => {
 export async function loadUser(req, res, next) {
   const token = req.cookies?.crelo_session;
   if (token) {
-    const { rows } = await pool.query(`SELECT u.id,u.contact,u.display_name,COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL),'{}') roles
+    const { rows } = await pool.query(`SELECT u.id,u.contact,u.display_name,u.profile_image,u.student_approval_status,COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL),'{}') roles
       FROM sessions s JOIN users u ON u.id=s.user_id LEFT JOIN user_roles ur ON ur.user_id=u.id LEFT JOIN roles r ON r.id=ur.role_id
       WHERE s.session_hash=$1 AND s.expires_at>NOW() GROUP BY u.id`, [crypto.createHash('sha256').update(token).digest('hex')]);
     req.user = rows[0] || null;

@@ -21,6 +21,8 @@ router.post('/instructor/apply', requireAuth, asyncHandler(async (req, res) => {
     bio: z.string().trim().max(2000).optional(),
     license_number: z.string().trim().max(100),
   }), req, res); if (!data) return;
+  const account = (await pool.query('SELECT student_approval_status FROM users WHERE id=$1', [req.user.id])).rows[0];
+  if (account?.student_approval_status !== 'approved') return res.status(403).json({ error: 'Your student account must be approved before you can apply to teach.' });
   await pool.query('UPDATE users SET display_name=$1 WHERE id=$2', [data.display_name, req.user.id]);
   const { rows } = await pool.query(
     `INSERT INTO instructor_profiles(user_id,phone,bio,license_number,approval_status)
@@ -41,7 +43,7 @@ router.get('/admin/instructor-applications', requireAuth, requireRole('admin'), 
 }));
 router.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   res.json((await pool.query(
-    `SELECT u.id,u.display_name,u.contact,u.created_at,
+    `    SELECT u.id,u.display_name,u.contact,u.profile_image,u.student_approval_status,u.created_at,
       COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL),'{}') roles,
       ip.approval_status
      FROM users u
@@ -51,6 +53,22 @@ router.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async
      GROUP BY u.id,ip.approval_status
      ORDER BY u.created_at DESC`,
   )).rows);
+}));
+router.patch('/admin/users/:userId/approval', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const userId = id.safeParse(req.params.userId);
+  const data = body(z.object({ approval_status: z.enum(['approved', 'rejected', 'pending']) }), req, res);
+  if (!userId.success) return res.status(400).json({ error: 'Invalid user id' });
+  if (!data) return;
+  const { rows } = await pool.query(
+    `UPDATE users SET student_approval_status=$1 WHERE id=$2 RETURNING id,student_approval_status`,
+    [data.approval_status, userId.data],
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'Account not found.' });
+  await pool.query(
+    `INSERT INTO notifications(user_id,title,message) VALUES($1,'Student account review', $2)`,
+    [userId.data, `Your FirstGear student account has been ${data.approval_status}.`],
+  );
+  res.json(rows[0]);
 }));
 router.get('/admin/lesson-types', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   res.json((await pool.query('SELECT * FROM lesson_types ORDER BY active DESC,duration_minutes DESC,name')).rows);
@@ -154,7 +172,7 @@ router.post('/instructor/messages', requireAuth, requireRole('instructor','admin
 }));
 router.get('/instructor/overview', requireAuth, requireRole('instructor','admin'), asyncHandler(async (req, res) => {
   const profile = (await pool.query(
-    `SELECT u.display_name, u.contact, ip.phone, ip.bio, ip.license_number, ip.active
+    `SELECT u.display_name, u.contact, u.profile_image, ip.phone, ip.bio, ip.license_number, ip.active
      FROM users u LEFT JOIN instructor_profiles ip ON ip.user_id=u.id WHERE u.id=$1`,
     [req.user.id],
   )).rows[0];
@@ -197,7 +215,8 @@ router.get('/student/overview', requireAuth, requireRole('student'), asyncHandle
     [req.user.id],
   );
   const profile = (await pool.query(
-    'SELECT * FROM student_profiles WHERE user_id=$1',
+    `SELECT sp.*,u.display_name,u.contact,u.profile_image,u.student_approval_status
+     FROM student_profiles sp JOIN users u ON u.id=sp.user_id WHERE sp.user_id=$1`,
     [req.user.id],
   )).rows[0];
   const bookings = (await pool.query(
@@ -233,6 +252,7 @@ router.get('/student/overview', requireAuth, requireRole('student'), asyncHandle
       completedLessons,
       overallPercent: Math.min(100, completedLessons * 10),
     },
+    studentApprovalStatus: req.user.student_approval_status,
   });
 }));
 router.post('/admin/lesson-types', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
@@ -269,11 +289,13 @@ router.patch('/instructor/profile', requireAuth, requireRole('instructor','admin
     phone: z.string().trim().max(30).optional(),
     bio: z.string().trim().max(2000).optional(),
     license_number: z.string().trim().max(100).optional(),
+    profile_image: z.string().max(2500000).nullable().optional(),
   }), req, res); if (!data) return;
+  if (data.profile_image && !/^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(data.profile_image)) return res.status(400).json({ error: 'Profile picture must be a PNG, JPEG, WEBP, or GIF image.' });
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    await client.query('UPDATE users SET display_name=$1, contact=$2 WHERE id=$3', [data.display_name, data.contact.toLowerCase(), req.user.id]);
+    await client.query('UPDATE users SET display_name=$1, contact=$2, profile_image=COALESCE($3,profile_image) WHERE id=$4', [data.display_name, data.contact.toLowerCase(), data.profile_image === undefined ? null : data.profile_image, req.user.id]);
     const { rows } = await client.query(
       `INSERT INTO instructor_profiles(user_id,phone,bio,license_number) VALUES($1,$2,$3,$4)
        ON CONFLICT(user_id) DO UPDATE SET phone=EXCLUDED.phone,bio=EXCLUDED.bio,license_number=EXCLUDED.license_number
@@ -292,6 +314,22 @@ router.patch('/instructor/profile', requireAuth, requireRole('instructor','admin
 router.patch('/profiles/student', requireAuth, asyncHandler(async (req, res) => {
   const data = body(z.object({ phone: z.string().max(30).optional(), address: z.string().max(255).optional(), emergency_contact: z.string().max(100).optional() }), req, res); if (!data) return;
   const { rows } = await pool.query(`INSERT INTO student_profiles(user_id,phone,address,emergency_contact) VALUES($1,$2,$3,$4) ON CONFLICT(user_id) DO UPDATE SET phone=EXCLUDED.phone,address=EXCLUDED.address,emergency_contact=EXCLUDED.emergency_contact RETURNING *`, [req.user.id,data.phone,data.address,data.emergency_contact]); res.json(rows[0]);
+}));
+router.patch('/profiles/account', requireAuth, asyncHandler(async (req, res) => {
+  const data = body(z.object({
+    display_name: z.string().trim().min(2).max(120),
+    profile_image: z.string().max(2500000).nullable().optional(),
+  }), req, res);
+  if (!data) return;
+  if (data.profile_image && !/^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(data.profile_image)) {
+    return res.status(400).json({ error: 'Profile picture must be a PNG, JPEG, WEBP, or GIF image.' });
+  }
+  const { rows } = await pool.query(
+    `UPDATE users SET display_name=$1,profile_image=COALESCE($2,profile_image) WHERE id=$3
+     RETURNING id,display_name,contact,profile_image,student_approval_status`,
+    [data.display_name, data.profile_image === undefined ? null : data.profile_image, req.user.id],
+  );
+  res.json(rows[0]);
 }));
 router.post('/bookings', requireAuth, requireRole('student'), asyncHandler(async (req, res) => {
   const data = body(z.object({ instructor_id: z.number().int().positive().nullable().optional(), lesson_type_id: z.number().int().positive(), starts_at: z.string().datetime(), ends_at: z.string().datetime(), notes: z.string().max(1000).optional() }), req, res); if (!data) return;

@@ -374,6 +374,20 @@ function AdminDashboard({ contact, user, onSignOut }) {
     }
     loadAccounts();
   };
+  const changeApproval = async (id, approval_status) => {
+    const response = await fetch(`${API_BASE}/api/admin/users/${id}/approval`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ approval_status }),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      setError(result.error || 'Unable to update student approval.');
+      return;
+    }
+    loadAccounts();
+  };
   const assignBooking = async (id) => {
     const response = await fetch(`${API_BASE}/api/admin/bookings/${id}/assign`, { method: 'PATCH', credentials: 'include' });
     const result = await response.json();
@@ -449,7 +463,7 @@ function AdminDashboard({ contact, user, onSignOut }) {
           {accounts.length === 0 ? <p className="muted">No accounts found.</p> : accounts.map((account) => (
             <article className="application-row account-row" key={account.id}>
               <div><strong>{account.display_name}</strong><span>{account.contact}</span><small>Joined {new Date(account.created_at).toLocaleDateString()}</small></div>
-              <div className="account-role-control"><span className="status-pill">{account.roles.join(', ')}</span><select value={account.roles.includes('admin') ? 'admin' : account.roles.includes('instructor') ? 'instructor' : 'student'} disabled={account.id === user.id} onChange={(event) => changeRole(account.id, event.target.value)} aria-label={`Change role for ${account.contact}`}><option value="student">Student</option><option value="instructor">Instructor</option><option value="admin">Admin</option></select></div>
+              <div className="account-role-control"><span className="status-pill">{account.roles.join(', ')}</span><select value={account.roles.includes('admin') ? 'admin' : account.roles.includes('instructor') ? 'instructor' : 'student'} disabled={account.id === user.id} onChange={(event) => changeRole(account.id, event.target.value)} aria-label={`Change role for ${account.contact}`}><option value="student">Student</option><option value="instructor">Instructor</option><option value="admin">Admin</option></select>{account.roles.includes('student') && <><span className={`status-pill ${account.student_approval_status}`}>{account.student_approval_status}</span><select value={account.student_approval_status} onChange={(event) => changeApproval(account.id, event.target.value)} aria-label={`Change student approval for ${account.contact}`}><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></>}</div>
             </article>
           ))}
         </section>
@@ -574,7 +588,7 @@ function InstructorDashboard({ contact, user, onSignOut }) {
         <div className="profile-actions" ref={menuRef}>
           <span className="student-name">{profile.display_name}</span>
           <button className="user-menu-button" type="button" aria-label="Open user menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>
-            <span className="user-avatar">{initials}</span><span className="burger-icon"><i /><i /><i /></span>
+            <span className="user-avatar">{profile.profile_image ? <img src={profile.profile_image} alt="" /> : initials}</span><span className="burger-icon"><i /><i /><i /></span>
           </button>
           {menuOpen && <div className="user-menu"><strong>{profile.display_name}</strong><span>{contact}</span><button type="button" onClick={() => { setActiveTab('account'); setMenuOpen(false); }}>Profile</button><button type="button" onClick={() => { setMenuOpen(false); setActionMessage('Your instructor inbox is up to date.'); }}>Inbox</button><button type="button" onClick={() => { setMenuOpen(false); setActionMessage('Instructor help is available from the support centre.'); }}>Help</button><button type="button" onClick={() => { setMenuOpen(false); setActionMessage('Safety guidance and driving support are available here.'); }}>Safety</button><button type="button" onClick={onSignOut}>Sign out</button></div>}
         </div>
@@ -589,12 +603,53 @@ function InstructorDashboard({ contact, user, onSignOut }) {
         </>}
         {activeTab === 'schedule' && <InstructorSchedule bookings={overview.bookings} onUpdate={updateBooking} onApprovePayment={approvePayment} onMoved={() => { setActionMessage('Lesson moved successfully.'); loadOverview(); }} />}
         {activeTab === 'students' && <InstructorStudents bookings={overview.bookings} />}
-        {activeTab === 'account' && <><InstructorAccount profile={profile} onSaved={loadOverview} /><InstructorAvailability availability={overview.availability} blocks={overview.blocks} onSaved={loadOverview} /></>}
+        {activeTab === 'account' && <><ProfileEditor profile={profile} endpoint="/api/profiles/account" onSaved={loadOverview} title="Profile" /><InstructorAccount profile={profile} onSaved={loadOverview} /><InstructorAvailability availability={overview.availability} blocks={overview.blocks} onSaved={loadOverview} /></>}
       </div>
       <nav className="floating-nav" aria-label="Main navigation">{nav.map(([tab, icon, label]) => <button className={activeTab === tab ? 'active' : ''} type="button" key={tab} onClick={() => setActiveTab(tab)}><span>{icon}</span><small>{label}</small></button>)}</nav>
       <PortalFooter />
     </main>
   );
+}
+
+function ProfileEditor({ profile, endpoint, onSaved, title = 'Edit profile' }) {
+  const [name, setName] = useState(profile.display_name || '');
+  const [image, setImage] = useState(profile.profile_image || '');
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const chooseImage = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type) || file.size > 1800000) {
+      setError('Choose a PNG, JPEG, WEBP, or GIF image under 1.8MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setImage(reader.result);
+    reader.readAsDataURL(file);
+  };
+  const save = async (event) => {
+    event.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      const response = await fetch(`${API_BASE}${endpoint}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ display_name: name, profile_image: image || null }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Unable to save profile.');
+      setMessage('Profile saved.');
+      onSaved();
+    } catch (saveError) {
+      setError(saveError.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return <section className="dashboard-panel app-view account-editor"><p className="eyebrow">PROFILE</p><h1>{title}</h1><p className="view-intro">Update your name and profile picture shown across FirstGear.</p><div className="profile-picture-preview">{image ? <img src={image} alt="Profile preview" /> : <span>{name.slice(0, 2).toUpperCase() || 'S'}</span>}</div><form className="profile-form" onSubmit={save}><label htmlFor="profile-name">Name</label><input id="profile-name" value={name} onChange={(event) => setName(event.target.value)} required /><label htmlFor="profile-picture">Profile picture</label><input id="profile-picture" type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={chooseImage} /><button className="book-button" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save profile'}</button>{message && <p className="form-success" role="status">{message}</p>}{error && <p className="form-error" role="alert">{error}</p>}</form></section>;
 }
 
 function InstructorAccount({ profile, onSaved }) {
@@ -971,7 +1026,7 @@ function StudentDashboard({ contact, onSignOut }) {
             aria-expanded={userMenuOpen}
             onClick={() => setUserMenuOpen(!userMenuOpen)}
           >
-            <span className="user-avatar">S</span>
+            <span className="user-avatar">{overview.profile?.profile_image ? <img src={overview.profile.profile_image} alt="" /> : 'S'}</span>
             <span className="burger-icon"><i /><i /><i /></span>
           </button>
           {userMenuOpen && (
@@ -1228,7 +1283,7 @@ function StudentDashboard({ contact, onSignOut }) {
             <h1 id="account-view-title">Your account</h1>
             <p className="view-intro">Manage your FirstGear profile and get support.</p>
             <div className="account-card">
-              <div className="large-avatar">S</div>
+              <div className="large-avatar">{overview.profile?.profile_image ? <img src={overview.profile.profile_image} alt="" /> : 'S'}</div>
               <div><h2>{overview.profile?.display_name || 'Student'}</h2><p>{contact}</p></div>
             </div>
             <div className="account-links">
@@ -1238,7 +1293,11 @@ function StudentDashboard({ contact, onSignOut }) {
               <button type="button" onClick={() => showAction('Safety guidance and driving support are available here.')}>Safety <span>›</span></button>
               <button type="button" onClick={onSignOut}>Sign out <span>›</span></button>
             </div>
-            <section className="dashboard-panel instructor-application">
+            <ProfileEditor profile={overview.profile || {}} endpoint="/api/profiles/account" onSaved={async () => {
+              const response = await fetch(`${API_BASE}/api/student/overview`, { credentials: 'include' });
+              if (response.ok) setOverview(await response.json());
+            }} />
+            {overview.studentApprovalStatus === 'approved' ? <section className="dashboard-panel instructor-application">
               <p className="eyebrow">BECOME AN INSTRUCTOR</p>
               <h2>Apply to teach with FirstGear</h2>
               <p className="muted">Submit your details for superadmin approval before accepting student bookings.</p>
@@ -1254,7 +1313,7 @@ function StudentDashboard({ contact, onSignOut }) {
                 <button className="book-button" type="submit" disabled={applicationSaving}>{applicationSaving ? 'Submitting...' : 'Submit application'}</button>
                 {applicationStatus && <p className={applicationStatus.startsWith('Application') ? 'form-success' : 'form-error'} role="status">{applicationStatus}</p>}
               </form>
-            </section>
+            </section> : <section className="dashboard-panel instructor-application"><p className="eyebrow">INSTRUCTOR APPLICATION</p><h2>Approval required</h2><p className="muted">Only approved student accounts can apply to teach with FirstGear. Contact the superadmin if you need your account reviewed.</p></section>}
             {actionMessage && <div className="action-message" role="status">{actionMessage}<button type="button" onClick={() => setActionMessage('')}>×</button></div>}
           </section>
         )}
