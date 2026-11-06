@@ -8,12 +8,54 @@ const id = z.coerce.number().int().positive();
 const body = (schema, req, res) => { const result = schema.safeParse(req.body); if (!result.success) { res.status(400).json({ error: result.error.issues[0].message }); return null; } return result.data; };
 
 router.get('/lesson-types', asyncHandler(async (req, res) => res.json((await pool.query('SELECT * FROM lesson_types WHERE active=true ORDER BY name')).rows)));
-router.get('/instructors', asyncHandler(async (req, res) => res.json((await pool.query(`SELECT u.id,u.display_name,p.bio,p.license_number FROM instructor_profiles p JOIN users u ON u.id=p.user_id WHERE p.active=true ORDER BY u.display_name`)).rows)));
+router.get('/instructors', asyncHandler(async (req, res) => res.json((await pool.query(`SELECT u.id,u.display_name,p.bio,p.license_number FROM instructor_profiles p JOIN users u ON u.id=p.user_id WHERE p.active=true AND p.approval_status='approved' ORDER BY u.display_name`)).rows)));
 router.get('/instructors/:instructorId/availability', asyncHandler(async (req, res) => {
   const parsed = id.safeParse(req.params.instructorId); if (!parsed.success) return res.status(400).json({ error: 'Invalid instructor id' });
   res.json((await pool.query('SELECT * FROM instructor_availability WHERE instructor_id=$1 AND available=true ORDER BY weekday,start_time', [parsed.data])).rows);
 }));
 router.get('/notifications', requireAuth, asyncHandler(async (req, res) => res.json((await pool.query('SELECT * FROM notifications WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100', [req.user.id])).rows)));
+router.post('/instructor/apply', requireAuth, asyncHandler(async (req, res) => {
+  const data = body(z.object({
+    display_name: z.string().trim().min(2).max(120),
+    phone: z.string().trim().max(30).optional(),
+    bio: z.string().trim().max(2000).optional(),
+    license_number: z.string().trim().max(100),
+  }), req, res); if (!data) return;
+  await pool.query('UPDATE users SET display_name=$1 WHERE id=$2', [data.display_name, req.user.id]);
+  const { rows } = await pool.query(
+    `INSERT INTO instructor_profiles(user_id,phone,bio,license_number,approval_status)
+     VALUES($1,$2,$3,$4,'pending')
+     ON CONFLICT(user_id) DO UPDATE SET phone=EXCLUDED.phone,bio=EXCLUDED.bio,license_number=EXCLUDED.license_number,approval_status='pending'
+     RETURNING approval_status`,
+    [req.user.id, data.phone || null, data.bio || null, data.license_number],
+  );
+  await pool.query(`INSERT INTO notifications(user_id,title,message) SELECT id,'Instructor application received','Your instructor application is awaiting FirstGear approval.' FROM users WHERE contact='superadmin@firstgear.local'`);
+  res.status(201).json(rows[0]);
+}));
+router.get('/admin/instructor-applications', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  res.json((await pool.query(
+    `SELECT u.id,u.display_name,u.contact,ip.phone,ip.bio,ip.license_number,ip.approval_status
+     FROM instructor_profiles ip JOIN users u ON u.id=ip.user_id
+     ORDER BY CASE ip.approval_status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,u.display_name`,
+  )).rows);
+}));
+router.patch('/admin/instructor-applications/:instructorId', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const instructorId = id.safeParse(req.params.instructorId);
+  const data = body(z.object({ approval_status: z.enum(['approved', 'rejected']) }), req, res);
+  if (!instructorId.success) return res.status(400).json({ error: 'Invalid instructor id' });
+  if (!data) return;
+  const { rows } = await pool.query(
+    `UPDATE instructor_profiles SET approval_status=$1,active=($1='approved')
+     WHERE user_id=$2 RETURNING approval_status`,
+    [data.approval_status, instructorId.data],
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'Instructor application not found.' });
+  await pool.query(
+    `INSERT INTO notifications(user_id,title,message) VALUES($1,$2,$3)`,
+    [instructorId.data, `Instructor application ${data.approval_status}`, `Your FirstGear instructor application has been ${data.approval_status}.`],
+  );
+  res.json(rows[0]);
+}));
 router.post('/instructor/messages', requireAuth, requireRole('instructor','admin'), asyncHandler(async (req, res) => {
   const data = body(z.object({
     student_id: z.number().int().positive(),

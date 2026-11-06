@@ -66,6 +66,13 @@ environment. `AUTH_EMAIL_FROM` must use a domain verified with Resend. The API a
 provides `/api/health` and `/api/ready`; all responses include a request ID and
 auth endpoints are rate limited.
 
+The public home page explains FirstGear's UK driving lessons and £45 hourly
+rate. Users select Sign up / sign in to access passwordless email login.
+Instructors can submit an application from their account; applications remain
+hidden from student bookings until approved by an administrator. The
+superadmin account is `steveotien8@gmail.com`; sign in through the normal
+FirstGear login page.
+
 ---
 
 ## 🚂 Deploy to Railway (Step-by-Step)

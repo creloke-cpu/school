@@ -27,6 +27,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState('');
   const [devLink, setDevLink] = useState('');
+  const [showLogin, setShowLogin] = useState(false);
   const contactInputRef = useRef(null);
 
   useEffect(() => {
@@ -97,11 +98,16 @@ export default function App() {
   }
 
   if (dashboard) {
-    if (user?.roles?.includes('instructor') || user?.roles?.includes('admin')) {
+    if (user?.roles?.includes('admin')) {
+      return <AdminDashboard contact={contact} user={user} onSignOut={signOut} />;
+    }
+    if (user?.roles?.includes('instructor')) {
       return <InstructorDashboard contact={contact} user={user} onSignOut={signOut} />;
     }
     return <StudentDashboard contact={contact} onSignOut={signOut} />;
   }
+
+  if (!showLogin) return <LandingPage onSignIn={() => setShowLogin(true)} />;
 
   return (
     <main className="page">
@@ -211,13 +217,116 @@ export default function App() {
       </section>
 
       <footer className="footer">
-        <p>Questions? Call <a href="tel:08085022730">0808 502 2730 (free)</a></p>
+        <p>Questions? Call <a href="tel:+447512623380">+44 7512 623380</a></p>
         <nav aria-label="Footer links">
           {footerLinks.map(([label, href]) => (
             <a key={label} href={href} target="_blank" rel="noreferrer">{label}</a>
           ))}
         </nav>
       </footer>
+    </main>
+  );
+}
+
+function LandingPage({ onSignIn }) {
+  return (
+    <main className="landing-page">
+      <header className="landing-header">
+        <a className="logo" href="/" aria-label="FirstGear home">FIRSTGEAR</a>
+        <button className="landing-signin" type="button" onClick={onSignIn}>Sign in</button>
+      </header>
+      <section className="landing-hero">
+        <div>
+          <p className="eyebrow">UK DRIVING SCHOOL</p>
+          <h1>Learn to drive with confidence.</h1>
+          <p className="landing-lede">Friendly, practical lessons with qualified instructors across the UK. Book your next step towards the open road.</p>
+          <div className="landing-actions">
+            <button className="continue-button" type="button" onClick={onSignIn}>Sign up / sign in</button>
+            <a className="secondary-button" href="#lessons">Explore lessons</a>
+          </div>
+        </div>
+        <div className="landing-price-card">
+          <span className="eyebrow">POPULAR LESSON</span>
+          <strong>£45</strong>
+          <span>per hour</span>
+          <small>60-minute practical driving lesson</small>
+        </div>
+      </section>
+      <section className="landing-stats" id="lessons">
+        <article><strong>£45/hr</strong><span>Clear, simple pricing</span></article>
+        <article><strong>1-to-1</strong><span>Personal instructor support</span></article>
+        <article><strong>UK-wide</strong><span>Lessons built around you</span></article>
+      </section>
+      <section className="landing-info">
+        <p className="eyebrow">WHY FIRSTGEAR</p>
+        <h2>Everything you need to become a safer, more confident driver.</h2>
+        <div className="landing-cards">
+          <article><h3>Qualified instructors</h3><p>Learn with experienced driving instructors who make every lesson practical and encouraging.</p></article>
+          <article><h3>Flexible scheduling</h3><p>Find lesson times that fit around work, study, and everyday life.</p></article>
+          <article><h3>Track your progress</h3><p>See your upcoming lessons, completed practice, and next milestones in one place.</p></article>
+        </div>
+      </section>
+      <footer className="footer"><p>Ready to get started? <button className="inline-link" type="button" onClick={onSignIn}>Create your account</button></p></footer>
+    </main>
+  );
+}
+
+function AdminDashboard({ contact, user, onSignOut }) {
+  const [applications, setApplications] = useState([]);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const loadApplications = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE}/api/admin/instructor-applications`, { credentials: 'include' });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Unable to load instructor applications.');
+      setApplications(result);
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { loadApplications(); }, []);
+  const decide = async (id, approval_status) => {
+    setError('');
+    const response = await fetch(`${API_BASE}/api/admin/instructor-applications/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ approval_status }),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      setError(result.error || 'Unable to update application.');
+      return;
+    }
+    loadApplications();
+  };
+  const pending = applications.filter((application) => application.approval_status === 'pending');
+  return (
+    <main className="dashboard-page">
+      <header className="dashboard-header">
+        <a className="logo" href="/" aria-label="FirstGear home">FIRSTGEAR</a>
+        <div className="header-actions"><span>{contact}</span><button className="text-button" type="button" onClick={onSignOut}>Sign out</button></div>
+      </header>
+      <section className="dashboard-content">
+        <p className="eyebrow">SUPERADMIN</p>
+        <h1>Instructor approvals</h1>
+        <p className="view-intro">Review instructor applications before they can accept student bookings.</p>
+        <div className="stats-grid"><div><strong>{pending.length}</strong><span>Pending review</span></div><div><strong>{applications.filter((application) => application.approval_status === 'approved').length}</strong><span>Approved instructors</span></div><div><strong>{applications.length}</strong><span>Total applications</span></div></div>
+        {error && <p className="form-error" role="alert">{error}</p>}
+        <section className="dashboard-panel admin-applications">
+          <div className="panel-heading"><div><p className="eyebrow">APPLICATIONS</p><h2>Instructor applications</h2></div><button className="text-button" type="button" onClick={loadApplications}>Refresh</button></div>
+          {loading ? <p className="muted">Loading applications...</p> : applications.length === 0 ? <p className="muted">No instructor applications yet.</p> : applications.map((application) => (
+            <article className="application-row" key={application.id}>
+              <div><strong>{application.display_name}</strong><span>{application.contact}</span><small>Licence: {application.license_number || 'Not provided'}</small>{application.bio && <p>{application.bio}</p>}</div>
+              <div className="application-status"><span className={`status-pill ${application.approval_status}`}>{application.approval_status}</span>{application.approval_status === 'pending' && <div><button className="book-button compact" type="button" onClick={() => decide(application.id, 'approved')}>Approve</button><button className="text-button" type="button" onClick={() => decide(application.id, 'rejected')}>Reject</button></div>}</div>
+            </article>
+          ))}
+        </section>
+      </section>
     </main>
   );
 }
@@ -480,6 +589,9 @@ function StudentDashboard({ contact, onSignOut }) {
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [rescheduleTime, setRescheduleTime] = useState('10:00');
   const [activePanel, setActivePanel] = useState(null);
+  const [instructorApplication, setInstructorApplication] = useState({ display_name: '', phone: '', bio: '', license_number: '' });
+  const [applicationStatus, setApplicationStatus] = useState('');
+  const [applicationSaving, setApplicationSaving] = useState(false);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/student/overview`, { credentials: 'include' })
@@ -556,6 +668,27 @@ function StudentDashboard({ contact, onSignOut }) {
       setActionMessage(error.message);
     } finally {
       setBookingLoading(false);
+    }
+  };
+
+  const submitInstructorApplication = async (event) => {
+    event.preventDefault();
+    setApplicationSaving(true);
+    setApplicationStatus('');
+    try {
+      const response = await fetch(`${API_BASE}/api/instructor/apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(instructorApplication),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Unable to submit instructor application.');
+      setApplicationStatus('Application submitted. FirstGear will review your details.');
+    } catch (error) {
+      setApplicationStatus(error.message);
+    } finally {
+      setApplicationSaving(false);
     }
   };
 
@@ -836,6 +969,23 @@ function StudentDashboard({ contact, onSignOut }) {
               <button type="button" onClick={() => showAction('Safety guidance and driving support are available here.')}>Safety <span>›</span></button>
               <button type="button" onClick={onSignOut}>Sign out <span>›</span></button>
             </div>
+            <section className="dashboard-panel instructor-application">
+              <p className="eyebrow">BECOME AN INSTRUCTOR</p>
+              <h2>Apply to teach with FirstGear</h2>
+              <p className="muted">Submit your details for superadmin approval before accepting student bookings.</p>
+              <form className="profile-form" onSubmit={submitInstructorApplication}>
+                <label htmlFor="application-name">Full name</label>
+                <input id="application-name" value={instructorApplication.display_name} onChange={(event) => setInstructorApplication({ ...instructorApplication, display_name: event.target.value })} required />
+                <label htmlFor="application-phone">Phone number</label>
+                <input id="application-phone" type="tel" value={instructorApplication.phone} onChange={(event) => setInstructorApplication({ ...instructorApplication, phone: event.target.value })} />
+                <label htmlFor="application-license">Driving licence / ADI number</label>
+                <input id="application-license" value={instructorApplication.license_number} onChange={(event) => setInstructorApplication({ ...instructorApplication, license_number: event.target.value })} required />
+                <label htmlFor="application-bio">About your experience</label>
+                <textarea id="application-bio" rows="3" value={instructorApplication.bio} onChange={(event) => setInstructorApplication({ ...instructorApplication, bio: event.target.value })} />
+                <button className="book-button" type="submit" disabled={applicationSaving}>{applicationSaving ? 'Submitting...' : 'Submit application'}</button>
+                {applicationStatus && <p className={applicationStatus.startsWith('Application') ? 'form-success' : 'form-error'} role="status">{applicationStatus}</p>}
+              </form>
+            </section>
             {actionMessage && <div className="action-message" role="status">{actionMessage}<button type="button" onClick={() => setActionMessage('')}>×</button></div>}
           </section>
         )}
