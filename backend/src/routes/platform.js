@@ -7,7 +7,7 @@ router.use(loadUser);
 const id = z.coerce.number().int().positive();
 const body = (schema, req, res) => { const result = schema.safeParse(req.body); if (!result.success) { res.status(400).json({ error: result.error.issues[0].message }); return null; } return result.data; };
 
-router.get('/lesson-types', asyncHandler(async (req, res) => res.json((await pool.query('SELECT * FROM lesson_types WHERE active=true ORDER BY name')).rows)));
+router.get('/lesson-types', asyncHandler(async (req, res) => res.json((await pool.query('SELECT * FROM lesson_types WHERE active=true ORDER BY duration_minutes DESC,name')).rows)));
 router.get('/instructors', asyncHandler(async (req, res) => res.json((await pool.query(`SELECT u.id,u.display_name,p.bio,p.license_number FROM instructor_profiles p JOIN users u ON u.id=p.user_id WHERE p.active=true AND p.approval_status='approved' ORDER BY u.display_name`)).rows)));
 router.get('/instructors/:instructorId/availability', asyncHandler(async (req, res) => {
   const parsed = id.safeParse(req.params.instructorId); if (!parsed.success) return res.status(400).json({ error: 'Invalid instructor id' });
@@ -51,6 +51,37 @@ router.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async
      GROUP BY u.id,ip.approval_status
      ORDER BY u.created_at DESC`,
   )).rows);
+}));
+router.get('/admin/lesson-types', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  res.json((await pool.query('SELECT * FROM lesson_types ORDER BY active DESC,duration_minutes DESC,name')).rows);
+}));
+router.get('/admin/payments', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  res.json((await pool.query(
+    `SELECT p.id,p.booking_id,p.amount_cents,p.status,p.provider_reference,p.created_at,
+      s.display_name student_name,s.contact student_contact,lt.name lesson_type
+     FROM payments p JOIN bookings b ON b.id=p.booking_id
+     JOIN users s ON s.id=b.student_id JOIN lesson_types lt ON lt.id=b.lesson_type_id
+     WHERE p.status='submitted' ORDER BY p.created_at`,
+  )).rows);
+}));
+router.patch('/admin/lesson-types/:lessonTypeId', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const lessonTypeId = id.safeParse(req.params.lessonTypeId);
+  const data = body(z.object({
+    name: z.string().trim().min(2).max(100),
+    description: z.string().trim().max(500).optional(),
+    duration_minutes: z.number().int().positive(),
+    price_cents: z.number().int().nonnegative(),
+    active: z.boolean(),
+  }), req, res);
+  if (!lessonTypeId.success) return res.status(400).json({ error: 'Invalid lesson type id' });
+  if (!data) return;
+  const { rows } = await pool.query(
+    `UPDATE lesson_types SET name=$1,description=$2,duration_minutes=$3,price_cents=$4,active=$5
+     WHERE id=$6 RETURNING *`,
+    [data.name, data.description || null, data.duration_minutes, data.price_cents, data.active, lessonTypeId.data],
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'Lesson type not found.' });
+  res.json(rows[0]);
 }));
 router.patch('/admin/users/:userId/role', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const userId = id.safeParse(req.params.userId);
@@ -130,9 +161,11 @@ router.get('/instructor/overview', requireAuth, requireRole('instructor','admin'
   const bookings = (await pool.query(
     `SELECT b.id, b.starts_at, b.ends_at, b.status, b.notes, b.created_at,
       lt.name lesson_type, lt.duration_minutes, lt.price_cents,
+      p.id payment_id, p.status payment_status, p.provider_reference payment_reference,
       s.id student_id, s.display_name student_name, s.contact student_contact
      FROM bookings b
      JOIN lesson_types lt ON lt.id=b.lesson_type_id
+     LEFT JOIN payments p ON p.booking_id=b.id
      JOIN users s ON s.id=b.student_id
      WHERE b.instructor_id=$1 ORDER BY b.starts_at`,
     [req.user.id],
@@ -179,7 +212,7 @@ router.get('/student/overview', requireAuth, requireRole('student'), asyncHandle
     [req.user.id],
   )).rows;
   const payments = (await pool.query(
-    `SELECT id, amount_cents, status, provider_reference, created_at
+    `SELECT id, booking_id, amount_cents, status, provider_reference, created_at
      FROM payments WHERE user_id=$1 ORDER BY created_at DESC`,
     [req.user.id],
   )).rows;
@@ -266,9 +299,67 @@ router.post('/bookings', requireAuth, requireRole('student'), asyncHandler(async
     const blocked = await pool.query('SELECT 1 FROM instructor_blocks WHERE instructor_id=$1 AND starts_at < $3 AND ends_at > $2 LIMIT 1', [data.instructor_id, data.starts_at, data.ends_at]);
     if (blocked.rowCount) return res.status(409).json({ error: 'This instructor is unavailable during that time.' });
   }
-  const { rows } = await pool.query(`INSERT INTO bookings(student_id,instructor_id,lesson_type_id,starts_at,ends_at,notes) VALUES($1,$2,$3,$4,$5,$6) RETURNING *`, [req.user.id,data.instructor_id || null,data.lesson_type_id,data.starts_at,data.ends_at,data.notes]);
+  const lesson = (await pool.query('SELECT id,price_cents,name FROM lesson_types WHERE id=$1 AND active=true', [data.lesson_type_id])).rows[0];
+  if (!lesson) return res.status(404).json({ error: 'Lesson option not found.' });
+  const client = await pool.connect();
+  let booking;
+  let payment;
+  try {
+    await client.query('BEGIN');
+    booking = (await client.query(`INSERT INTO bookings(student_id,instructor_id,lesson_type_id,starts_at,ends_at,notes) VALUES($1,$2,$3,$4,$5,$6) RETURNING *`, [req.user.id,data.instructor_id || null,data.lesson_type_id,data.starts_at,data.ends_at,data.notes])).rows[0];
+    payment = (await client.query(
+      `INSERT INTO payments(booking_id,user_id,amount_cents,status) VALUES($1,$2,$3,'pending') RETURNING id,booking_id,amount_cents,status`,
+      [booking.id, req.user.id, lesson.price_cents],
+    )).rows[0];
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+  await pool.query(
+    `INSERT INTO notifications(user_id,title,message) VALUES($1,'Payment required for your lesson',$2)`,
+    [req.user.id, `Your ${lesson.name} booking is awaiting payment. Transfer £${(lesson.price_cents / 100).toFixed(2)} and submit the bank reference.`],
+  );
   if (!data.instructor_id) await pool.query(`INSERT INTO notifications(user_id,title,message) SELECT id,'New student booking request','A student has requested a lesson and needs an instructor assignment.' FROM users WHERE EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=users.id AND r.name='admin')`);
-  res.status(201).json(rows[0]);
+  res.status(201).json({ ...booking, payment });
+}));
+router.post('/payments/:paymentId/reference', requireAuth, requireRole('student'), asyncHandler(async (req, res) => {
+  const paymentId = id.safeParse(req.params.paymentId);
+  const data = body(z.object({ provider_reference: z.string().trim().min(1).max(100) }), req, res);
+  if (!paymentId.success) return res.status(400).json({ error: 'Invalid payment id' });
+  if (!data) return;
+  const { rows } = await pool.query(
+    `UPDATE payments SET provider_reference=$1,status='submitted'
+     WHERE id=$2 AND user_id=$3 AND status IN ('pending','submitted')
+     RETURNING id,booking_id,amount_cents,status,provider_reference`,
+    [data.provider_reference, paymentId.data, req.user.id],
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'Payment not found or already approved.' });
+  await pool.query(
+    `INSERT INTO notifications(user_id,title,message)
+     SELECT DISTINCT u.id,'Payment reference submitted',$2
+     FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id
+     WHERE r.name='admin'
+        OR EXISTS (SELECT 1 FROM bookings b WHERE b.id=$3 AND b.instructor_id=u.id)`,
+    [req.user.id, `A student submitted payment reference ${data.provider_reference} for review.`, rows[0].booking_id],
+  );
+  res.json(rows[0]);
+}));
+router.patch('/payments/:paymentId/approve', requireAuth, requireRole('instructor','admin'), asyncHandler(async (req, res) => {
+  const paymentId = id.safeParse(req.params.paymentId);
+  if (!paymentId.success) return res.status(400).json({ error: 'Invalid payment id' });
+  const { rows } = await pool.query(
+    `UPDATE payments p SET status='paid',reviewed_by=$1,reviewed_at=NOW()
+     WHERE p.id=$2 AND p.status='submitted'
+       AND (EXISTS (SELECT 1 FROM bookings b WHERE b.id=p.booking_id AND b.instructor_id=$1) OR EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=$1 AND r.name='admin'))
+     RETURNING p.id,p.booking_id,p.status,p.provider_reference`,
+    [req.user.id, paymentId.data],
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'Submitted payment not found or not assigned to you.' });
+  await pool.query(`INSERT INTO notifications(user_id,title,message) SELECT b.student_id,'Payment approved','Your bank transfer has been approved by FirstGear.' FROM bookings b WHERE b.id=$1`, [rows[0].booking_id]);
+  res.json(rows[0]);
 }));
 router.get('/bookings', requireAuth, asyncHandler(async (req, res) => {
   const { rows } = await pool.query(`SELECT b.*,lt.name lesson_type,u.display_name instructor_name FROM bookings b JOIN lesson_types lt ON lt.id=b.lesson_type_id LEFT JOIN users u ON u.id=b.instructor_id WHERE b.student_id=$1 OR b.instructor_id=$1 ORDER BY b.starts_at`, [req.user.id]); res.json(rows);

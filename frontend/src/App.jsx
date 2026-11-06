@@ -299,6 +299,8 @@ function AdminDashboard({ contact, user, onSignOut }) {
   const [applications, setApplications] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [unassignedBookings, setUnassignedBookings] = useState([]);
+  const [lessonTypes, setLessonTypes] = useState([]);
+  const [submittedPayments, setSubmittedPayments] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const loadApplications = async () => {
@@ -326,8 +328,20 @@ function AdminDashboard({ contact, user, onSignOut }) {
     if (!response.ok) throw new Error(result.error || 'Unable to load booking requests.');
     setUnassignedBookings(result);
   };
+  const loadLessonTypes = async () => {
+    const response = await fetch(`${API_BASE}/api/admin/lesson-types`, { credentials: 'include' });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Unable to load lesson options.');
+    setLessonTypes(result);
+  };
+  const loadSubmittedPayments = async () => {
+    const response = await fetch(`${API_BASE}/api/admin/payments`, { credentials: 'include' });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Unable to load submitted payments.');
+    setSubmittedPayments(result);
+  };
   useEffect(() => {
-    Promise.all([loadApplications(), loadAccounts(), loadUnassignedBookings()]).catch((requestError) => setError(requestError.message));
+    Promise.all([loadApplications(), loadAccounts(), loadUnassignedBookings(), loadLessonTypes(), loadSubmittedPayments()]).catch((requestError) => setError(requestError.message));
   }, []);
   const decide = async (id, approval_status) => {
     setError('');
@@ -368,6 +382,29 @@ function AdminDashboard({ contact, user, onSignOut }) {
     }
     loadUnassignedBookings();
   };
+  const updateLessonType = async (lessonType) => {
+    const response = await fetch(`${API_BASE}/api/admin/lesson-types/${lessonType.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(lessonType),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      setError(result.error || 'Unable to update lesson option.');
+      return;
+    }
+    setLessonTypes((current) => current.map((item) => item.id === result.id ? result : item));
+  };
+  const approvePayment = async (id) => {
+    const response = await fetch(`${API_BASE}/api/payments/${id}/approve`, { method: 'PATCH', credentials: 'include' });
+    const result = await response.json();
+    if (!response.ok) {
+      setError(result.error || 'Unable to approve payment.');
+      return;
+    }
+    loadSubmittedPayments();
+  };
   const pending = applications.filter((application) => application.approval_status === 'pending');
   return (
     <main className="dashboard-page">
@@ -398,6 +435,18 @@ function AdminDashboard({ contact, user, onSignOut }) {
               <div className="account-role-control"><span className="status-pill">{account.roles.join(', ')}</span><select value={account.roles.includes('admin') ? 'admin' : account.roles.includes('instructor') ? 'instructor' : 'student'} disabled={account.id === user.id} onChange={(event) => changeRole(account.id, event.target.value)} aria-label={`Change role for ${account.contact}`}><option value="student">Student</option><option value="instructor">Instructor</option><option value="admin">Admin</option></select></div>
             </article>
           ))}
+        </section>
+        <section className="dashboard-panel admin-applications">
+          <div className="panel-heading"><div><p className="eyebrow">LESSON OPTIONS</p><h2>Manage lesson prices</h2></div><button className="text-button" type="button" onClick={loadLessonTypes}>Refresh</button></div>
+          <p className="muted">These options appear in student booking. The default extended lesson is 2 hours for £90.</p>
+          {lessonTypes.map((lessonType) => <div className="application-row" key={lessonType.id}>
+            <div className="lesson-type-editor"><input aria-label="Lesson name" value={lessonType.name} onChange={(event) => setLessonTypes((current) => current.map((item) => item.id === lessonType.id ? { ...item, name: event.target.value } : item))} /><div><label>Minutes <input type="number" min="1" value={lessonType.duration_minutes} onChange={(event) => setLessonTypes((current) => current.map((item) => item.id === lessonType.id ? { ...item, duration_minutes: Number(event.target.value) } : item))} /></label><label>Price £ <input type="number" min="0" step="0.01" value={(lessonType.price_cents / 100).toFixed(2)} onChange={(event) => setLessonTypes((current) => current.map((item) => item.id === lessonType.id ? { ...item, price_cents: Math.round(Number(event.target.value) * 100) } : item))} /></label></div></div>
+            <div className="account-role-control"><span className={`status-pill ${lessonType.active ? 'approved' : 'rejected'}`}>{lessonType.active ? 'Active' : 'Hidden'}</span><button className="book-button compact" type="button" onClick={() => updateLessonType(lessonType)}>Save</button><button className="text-button" type="button" onClick={() => updateLessonType({ ...lessonType, active: !lessonType.active })}>{lessonType.active ? 'Hide' : 'Enable'}</button></div>
+          </div>)}
+        </section>
+        <section className="dashboard-panel admin-applications">
+          <div className="panel-heading"><div><p className="eyebrow">PAYMENT REVIEW</p><h2>Submitted bank references</h2></div><button className="text-button" type="button" onClick={loadSubmittedPayments}>Refresh</button></div>
+          {submittedPayments.length ? submittedPayments.map((payment) => <div className="application-row" key={payment.id}><div><strong>{payment.student_name}</strong><span>{payment.lesson_type} · £{(payment.amount_cents / 100).toFixed(2)}</span><small>Reference: {payment.provider_reference}</small></div><button className="book-button compact" type="button" onClick={() => approvePayment(payment.id)}>Approve payment</button></div>) : <p className="muted">No submitted payments need review.</p>}
         </section>
         <section className="dashboard-panel admin-applications admin-accounts">
           <div className="panel-heading"><div><p className="eyebrow">BOOKING REQUESTS</p><h2>Unassigned student bookings</h2></div><button className="text-button" type="button" onClick={loadUnassignedBookings}>Refresh</button></div>
@@ -470,6 +519,16 @@ function InstructorDashboard({ contact, user, onSignOut }) {
       setActionMessage(error.message);
     }
   };
+  const approvePayment = async (paymentId) => {
+    const response = await fetch(`${API_BASE}/api/payments/${paymentId}/approve`, { method: 'PATCH', credentials: 'include' });
+    const result = await response.json();
+    if (!response.ok) {
+      setActionMessage(result.error || 'Unable to approve payment.');
+      return;
+    }
+    setActionMessage('Payment approved.');
+    loadOverview();
+  };
 
   if (loading || !overview) return <main className="page"><p className="loading-message">Loading instructor portal...</p></main>;
   const profile = overview.profile || {};
@@ -503,7 +562,7 @@ function InstructorDashboard({ contact, user, onSignOut }) {
           <div className="dashboard-grid"><section className="dashboard-panel next-lesson"><div className="panel-heading"><div><p className="eyebrow">NEXT LESSON</p><h2>{nextLesson?.lesson_type || 'No upcoming lessons'}</h2></div><span className="status-pill">{nextLesson?.status || 'Clear'}</span></div>{nextLesson ? <><div className="lesson-date"><strong>{new Date(nextLesson.starts_at).toLocaleDateString(undefined, { weekday: 'short' }).toUpperCase()}</strong><b>{new Date(nextLesson.starts_at).getDate()}</b><span>{new Date(nextLesson.starts_at).toLocaleDateString(undefined, { month: 'short' }).toUpperCase()}</span></div><div className="lesson-details"><p><strong>{new Date(nextLesson.starts_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – {new Date(nextLesson.ends_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong></p><p>Student: {nextLesson.student_name}</p><p>{nextLesson.notes || 'Prepare for your upcoming lesson.'}</p></div><div className="lesson-actions"><button className="book-button" type="button" onClick={() => updateBooking(nextLesson, 'completed')}>Mark completed</button><button className="text-button" type="button" onClick={() => updateBooking(nextLesson, 'cancelled')}>Cancel lesson</button></div></> : <p className="muted">Your schedule is clear.</p>}</section><section className="dashboard-panel"><div className="panel-heading"><div><p className="eyebrow">AVAILABILITY</p><h2>Teaching hours</h2></div><strong>{overview.availability.length}</strong></div><p className="muted">{overview.blocks.length ? `${overview.blocks.length} blocked period(s) coming up.` : 'Block dates or times when you cannot teach.'}</p><button className="text-button" type="button" onClick={() => setActiveTab('account')}>Manage availability →</button></section></div>
           <section className="dashboard-panel history-panel"><div className="panel-heading"><div><p className="eyebrow">UPCOMING</p><h2>Next students</h2></div><button className="text-button" type="button" onClick={() => setActiveTab('schedule')}>See all →</button></div>{upcoming.slice(0, 3).map((booking) => <div className="history-row" key={booking.id}><span className="history-date">{new Date(booking.starts_at).toLocaleDateString()}</span><strong>{booking.student_name}</strong><span className="history-instructor">{booking.lesson_type}</span><span className="completed">{booking.status}</span></div>)}{!upcoming.length && <p className="muted">No upcoming student lessons.</p>}</section>
         </>}
-        {activeTab === 'schedule' && <InstructorSchedule bookings={overview.bookings} onUpdate={updateBooking} onMoved={() => { setActionMessage('Lesson moved successfully.'); loadOverview(); }} />}
+        {activeTab === 'schedule' && <InstructorSchedule bookings={overview.bookings} onUpdate={updateBooking} onApprovePayment={approvePayment} onMoved={() => { setActionMessage('Lesson moved successfully.'); loadOverview(); }} />}
         {activeTab === 'students' && <InstructorStudents bookings={overview.bookings} />}
         {activeTab === 'account' && <><InstructorAccount profile={profile} onSaved={loadOverview} /><InstructorAvailability availability={overview.availability} blocks={overview.blocks} onSaved={loadOverview} /></>}
       </div>
@@ -578,7 +637,7 @@ function InstructorAvailability({ availability, blocks, onSaved }) {
   return <section className="dashboard-panel app-view availability-editor"><p className="eyebrow">AVAILABILITY</p><h1>Block calendar time</h1><p className="view-intro">Students cannot book during these periods. Use this for holidays, appointments, or personal time.</p><div className="availability-hours"><strong>Weekly teaching hours</strong>{availability.length ? availability.map((item) => <span key={item.id}>{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][item.weekday]} {String(item.start_time).slice(0, 5)}–{String(item.end_time).slice(0, 5)}</span>) : <span className="muted">No weekly hours configured.</span>}</div><form className="profile-form" onSubmit={addBlock}><label htmlFor="block-start">Unavailable from</label><input id="block-start" type="datetime-local" value={form.starts_at} onChange={(event) => setForm({ ...form, starts_at: event.target.value })} required /><label htmlFor="block-end">Unavailable until</label><input id="block-end" type="datetime-local" value={form.ends_at} onChange={(event) => setForm({ ...form, ends_at: event.target.value })} required /><label htmlFor="block-reason">Reason (optional)</label><input id="block-reason" value={form.reason} onChange={(event) => setForm({ ...form, reason: event.target.value })} placeholder="Holiday, appointment, unavailable" /><button className="book-button" type="submit">Block this time</button>{error && <p className="form-error" role="alert">{error}</p>}</form><div className="blocked-list"><h2>Upcoming blocked times</h2>{blocks.length ? blocks.map((block) => <div className="blocked-row" key={block.id}><div><strong>{new Date(block.starts_at).toLocaleString()}</strong><span> until {new Date(block.ends_at).toLocaleString()}</span>{block.reason && <small>{block.reason}</small>}</div><button className="text-button" type="button" onClick={() => removeBlock(block)}>Remove</button></div>) : <p className="muted">No blocked times.</p>}</div></section>;
 }
 
-function InstructorSchedule({ bookings, onUpdate, onMoved }) {
+function InstructorSchedule({ bookings, onUpdate, onApprovePayment, onMoved }) {
   const [month, setMonth] = useState(() => new Date());
   const [lessonFilter, setLessonFilter] = useState('upcoming');
   const [movingBooking, setMovingBooking] = useState(null);
@@ -635,7 +694,7 @@ function InstructorSchedule({ bookings, onUpdate, onMoved }) {
       })}</div>
     </div>
     <div className="schedule-filters" role="tablist" aria-label="Lesson history filter"><button className={lessonFilter === 'upcoming' ? 'active' : ''} type="button" role="tab" aria-selected={lessonFilter === 'upcoming'} onClick={() => setLessonFilter('upcoming')}>Upcoming ({upcomingBookings.length})</button><button className={lessonFilter === 'past' ? 'active' : ''} type="button" role="tab" aria-selected={lessonFilter === 'past'} onClick={() => setLessonFilter('past')}>Past lessons ({pastBookings.length})</button></div>
-    <div className="dashboard-panel detail-list schedule-list"><div className="panel-heading"><div><p className="eyebrow">{lessonFilter === 'past' ? 'HISTORY' : 'LESSON LIST'}</p><h2>{lessonFilter === 'past' ? 'Past lessons' : 'Upcoming lessons'}</h2></div><span className="status-pill">{visibleBookings.length}</span></div>{visibleBookings.length ? visibleBookings.map((booking) => <div className="detail-row" key={booking.id}><span>{new Date(booking.starts_at).toLocaleString()}</span><strong>{booking.student_name}<br /><small>{booking.lesson_type}</small></strong><span className="status-pill">{booking.status}</span>{lessonFilter === 'upcoming' && ['pending', 'confirmed'].includes(booking.status) && <><button className="text-button" type="button" onClick={() => openMove(booking)}>Move</button><button className="text-button" type="button" onClick={() => onUpdate(booking, 'completed')}>Complete</button></>}</div>) : <p className="muted">{lessonFilter === 'past' ? 'No past lessons yet.' : 'No upcoming lessons scheduled.'}</p>}</div>
+    <div className="dashboard-panel detail-list schedule-list"><div className="panel-heading"><div><p className="eyebrow">{lessonFilter === 'past' ? 'HISTORY' : 'LESSON LIST'}</p><h2>{lessonFilter === 'past' ? 'Past lessons' : 'Upcoming lessons'}</h2></div><span className="status-pill">{visibleBookings.length}</span></div>{visibleBookings.length ? visibleBookings.map((booking) => <div className="detail-row" key={booking.id}><span>{new Date(booking.starts_at).toLocaleString()}</span><strong>{booking.student_name}<br /><small>{booking.lesson_type}</small></strong><span className="status-pill">{booking.status}</span>{booking.payment_status === 'submitted' && <button className="book-button compact" type="button" onClick={() => onApprovePayment(booking.payment_id)}>Approve payment</button>}{lessonFilter === 'upcoming' && ['pending', 'confirmed'].includes(booking.status) && <><button className="text-button" type="button" onClick={() => openMove(booking)}>Move</button><button className="text-button" type="button" onClick={() => onUpdate(booking, 'completed')}>Complete</button></>}</div>) : <p className="muted">{lessonFilter === 'past' ? 'No past lessons yet.' : 'No upcoming lessons scheduled.'}</p>}</div>
     {movingBooking && <div className="dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setMovingBooking(null); }}><section className="dashboard-panel detail-view message-dialog" role="dialog" aria-modal="true"><div className="panel-heading"><div><p className="eyebrow">MOVE LESSON</p><h2>{movingBooking.student_name}</h2></div><button className="dialog-close" type="button" onClick={() => setMovingBooking(null)} aria-label="Close move lesson dialog">×</button></div><p className="muted">{movingBooking.lesson_type}</p><form className="reschedule-form" onSubmit={submitMove}><label htmlFor="move-date">New date</label><input id="move-date" type="date" min={new Date().toISOString().slice(0, 10)} value={moveDate} onChange={(event) => setMoveDate(event.target.value)} required /><label htmlFor="move-time">New start time</label><input id="move-time" type="time" value={moveTime} onChange={(event) => setMoveTime(event.target.value)} required /><button className="book-button" type="submit">Save new time</button></form></section></div>}
   </section>;
 }
@@ -694,6 +753,7 @@ function StudentDashboard({ contact, onSignOut }) {
   const [activePanel, setActivePanel] = useState(null);
   const [paymentReference, setPaymentReference] = useState('');
   const [paymentReferenceStatus, setPaymentReferenceStatus] = useState('');
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [instructors, setInstructors] = useState([]);
   const [selectedInstructorId, setSelectedInstructorId] = useState('');
   const [instructorApplication, setInstructorApplication] = useState({ display_name: '', phone: '', bio: '', license_number: '' });
@@ -760,12 +820,25 @@ function StudentDashboard({ contact, onSignOut }) {
   const submitPaymentReference = (event) => {
     event.preventDefault();
     const reference = paymentReference.trim();
-    if (!reference) {
+    const payment = overview.payments.find((item) => item.status === 'pending' || item.status === 'submitted');
+    if (!reference || !payment) {
       setPaymentReferenceStatus('Enter the reference shown on your bank transfer.');
       return;
     }
-    setPaymentReferenceStatus(`Reference ${reference} submitted for FirstGear to verify.`);
-    setPaymentReference('');
+    setPaymentSubmitting(true);
+    fetch(`${API_BASE}/api/payments/${payment.id}/reference`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider_reference: reference }),
+    }).then(async (response) => {
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Unable to submit payment reference.');
+      setPaymentReferenceStatus('Reference submitted. FirstGear will verify your payment.');
+      setPaymentReference('');
+      const overviewResponse = await fetch(`${API_BASE}/api/student/overview`, { credentials: 'include' });
+      if (overviewResponse.ok) setOverview(await overviewResponse.json());
+    }).catch((error) => setPaymentReferenceStatus(error.message)).finally(() => setPaymentSubmitting(false));
   };
 
   const submitBooking = async (event) => {
@@ -793,7 +866,8 @@ function StudentDashboard({ contact, onSignOut }) {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Unable to book this lesson.');
-      setActionMessage('Lesson booked successfully.');
+      setActionMessage('Lesson booked. Please complete the bank transfer and submit your reference.');
+      setActiveTab('payments');
       setSelectedLesson(null);
       setSelectedInstructorId('');
       setBookingDate('');
@@ -1075,6 +1149,7 @@ function StudentDashboard({ contact, onSignOut }) {
             <p className="eyebrow">PAYMENTS</p>
             <h1 id="payments-view-title">Make a payment</h1>
             <p className="view-intro">Pay for your FirstGear lessons and submit your bank transfer reference.</p>
+            {overview.payments.some((payment) => payment.status === 'pending') && <div className="notification-strip"><div className="notification-bell">!</div><div><strong>Payment required</strong><p>Complete your bank transfer, then submit the reference below.</p></div></div>}
             <div className="payment-panel">
               <div className="bank-details">
                 <p className="eyebrow">BANK TRANSFER</p>
@@ -1091,7 +1166,7 @@ function StudentDashboard({ contact, onSignOut }) {
                 <label htmlFor="payment-reference">Bank transfer reference</label>
                 <input id="payment-reference" value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} placeholder="e.g. FG-STEVE-001" maxLength={40} />
                 <p className="muted">After paying, enter the reference from your bank receipt. FirstGear will verify it before marking the payment as paid.</p>
-                <button className="book-button" type="submit">Submit reference</button>
+                <button className="book-button" type="submit" disabled={paymentSubmitting || !overview.payments.some((payment) => payment.status === 'pending' || payment.status === 'submitted')}>{paymentSubmitting ? 'Submitting...' : 'I paid — submit reference'}</button>
                 {paymentReferenceStatus && <p className="form-success" role="status">{paymentReferenceStatus}</p>}
               </form>
               <div className="apple-pay-info">
