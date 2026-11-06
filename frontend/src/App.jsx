@@ -298,6 +298,7 @@ function LandingPage({ onSignIn }) {
 function AdminDashboard({ contact, user, onSignOut }) {
   const [applications, setApplications] = useState([]);
   const [accounts, setAccounts] = useState([]);
+  const [unassignedBookings, setUnassignedBookings] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const loadApplications = async () => {
@@ -319,8 +320,14 @@ function AdminDashboard({ contact, user, onSignOut }) {
     if (!response.ok) throw new Error(result.error || 'Unable to load accounts.');
     setAccounts(result);
   };
+  const loadUnassignedBookings = async () => {
+    const response = await fetch(`${API_BASE}/api/admin/unassigned-bookings`, { credentials: 'include' });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Unable to load booking requests.');
+    setUnassignedBookings(result);
+  };
   useEffect(() => {
-    Promise.all([loadApplications(), loadAccounts()]).catch((requestError) => setError(requestError.message));
+    Promise.all([loadApplications(), loadAccounts(), loadUnassignedBookings()]).catch((requestError) => setError(requestError.message));
   }, []);
   const decide = async (id, approval_status) => {
     setError('');
@@ -351,6 +358,15 @@ function AdminDashboard({ contact, user, onSignOut }) {
       return;
     }
     loadAccounts();
+  };
+  const assignBooking = async (id) => {
+    const response = await fetch(`${API_BASE}/api/admin/bookings/${id}/assign`, { method: 'PATCH', credentials: 'include' });
+    const result = await response.json();
+    if (!response.ok) {
+      setError(result.error || 'Unable to assign booking.');
+      return;
+    }
+    loadUnassignedBookings();
   };
   const pending = applications.filter((application) => application.approval_status === 'pending');
   return (
@@ -383,8 +399,29 @@ function AdminDashboard({ contact, user, onSignOut }) {
             </article>
           ))}
         </section>
+        <section className="dashboard-panel admin-applications admin-accounts">
+          <div className="panel-heading"><div><p className="eyebrow">BOOKING REQUESTS</p><h2>Unassigned student bookings</h2></div><button className="text-button" type="button" onClick={loadUnassignedBookings}>Refresh</button></div>
+          {unassignedBookings.length === 0 ? <p className="muted">No unassigned booking requests.</p> : unassignedBookings.map((booking) => (
+            <article className="application-row" key={booking.id}>
+              <div><strong>{booking.student_name}</strong><span>{booking.student_contact}</span><small>{booking.lesson_type} · {new Date(booking.starts_at).toLocaleString()}</small></div>
+              <button className="book-button compact" type="button" onClick={() => assignBooking(booking.id)}>Assign to me</button>
+            </article>
+          ))}
+        </section>
       </section>
+      <PortalFooter />
     </main>
+  );
+}
+
+function PortalFooter() {
+  return (
+    <footer className="portal-footer">
+      <p>Questions? Call <a href="tel:+447512623380">+44 7512 623380</a></p>
+      <nav aria-label="Footer links">
+        {footerLinks.map(([label, href]) => <a key={label} href={href} target="_blank" rel="noreferrer">{label}</a>)}
+      </nav>
+    </footer>
   );
 }
 
@@ -394,6 +431,7 @@ function InstructorDashboard({ contact, user, onSignOut }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [actionMessage, setActionMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const menuRef = useRef(null);
 
   const loadOverview = () => {
     setLoading(true);
@@ -408,6 +446,13 @@ function InstructorDashboard({ contact, user, onSignOut }) {
   useEffect(() => {
     setMenuOpen(false);
   }, [activeTab]);
+  useEffect(() => {
+    const closeMenu = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', closeMenu);
+    return () => document.removeEventListener('mousedown', closeMenu);
+  }, []);
 
   const updateBooking = async (booking, status) => {
     try {
@@ -442,7 +487,7 @@ function InstructorDashboard({ contact, user, onSignOut }) {
           <button className={activeTab === 'schedule' ? 'active' : ''} type="button" onClick={() => setActiveTab('schedule')}>My schedule</button>
           <button className={activeTab === 'students' ? 'active' : ''} type="button" onClick={() => setActiveTab('students')}>Students</button>
         </nav>
-        <div className="profile-actions">
+        <div className="profile-actions" ref={menuRef}>
           <span className="student-name">{profile.display_name}</span>
           <button className="user-menu-button" type="button" aria-label="Open user menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>
             <span className="user-avatar">{initials}</span><span className="burger-icon"><i /><i /><i /></span>
@@ -463,6 +508,7 @@ function InstructorDashboard({ contact, user, onSignOut }) {
         {activeTab === 'account' && <><InstructorAccount profile={profile} onSaved={loadOverview} /><InstructorAvailability availability={overview.availability} blocks={overview.blocks} onSaved={loadOverview} /></>}
       </div>
       <nav className="floating-nav" aria-label="Main navigation">{nav.map(([tab, icon, label]) => <button className={activeTab === tab ? 'active' : ''} type="button" key={tab} onClick={() => setActiveTab(tab)}><span>{icon}</span><small>{label}</small></button>)}</nav>
+      <PortalFooter />
     </main>
   );
 }
@@ -646,9 +692,12 @@ function StudentDashboard({ contact, onSignOut }) {
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [rescheduleTime, setRescheduleTime] = useState('10:00');
   const [activePanel, setActivePanel] = useState(null);
+  const [instructors, setInstructors] = useState([]);
+  const [selectedInstructorId, setSelectedInstructorId] = useState('');
   const [instructorApplication, setInstructorApplication] = useState({ display_name: '', phone: '', bio: '', license_number: '' });
   const [applicationStatus, setApplicationStatus] = useState('');
   const [applicationSaving, setApplicationSaving] = useState(false);
+  const menuRef = useRef(null);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/student/overview`, { credentials: 'include' })
@@ -659,6 +708,19 @@ function StudentDashboard({ contact, onSignOut }) {
       })
       .then(setOverview)
       .catch((error) => setLoadError(error.message));
+  }, []);
+  useEffect(() => {
+    fetch(`${API_BASE}/api/instructors`)
+      .then((response) => response.ok ? response.json() : [])
+      .then(setInstructors)
+      .catch(() => setInstructors([]));
+  }, []);
+  useEffect(() => {
+    const closeMenu = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) setUserMenuOpen(false);
+    };
+    document.addEventListener('mousedown', closeMenu);
+    return () => document.removeEventListener('mousedown', closeMenu);
   }, []);
 
   if (loadError) {
@@ -690,6 +752,10 @@ function StudentDashboard({ contact, onSignOut }) {
     setUserMenuOpen(false);
     setActivePanel(panel);
   };
+  const menuAction = (action) => {
+    setUserMenuOpen(false);
+    action();
+  };
 
   const submitBooking = async (event) => {
     event.preventDefault();
@@ -707,7 +773,7 @@ function StudentDashboard({ contact, onSignOut }) {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          instructor_id: 3,
+          instructor_id: selectedInstructorId ? Number(selectedInstructorId) : null,
           lesson_type_id: selectedLesson.id,
           starts_at: startsAt.toISOString(),
           ends_at: endsAt.toISOString(),
@@ -718,6 +784,7 @@ function StudentDashboard({ contact, onSignOut }) {
       if (!response.ok) throw new Error(result.error || 'Unable to book this lesson.');
       setActionMessage('Lesson booked successfully.');
       setSelectedLesson(null);
+      setSelectedInstructorId('');
       setBookingDate('');
       const overviewResponse = await fetch(`${API_BASE}/api/student/overview`, { credentials: 'include' });
       if (overviewResponse.ok) setOverview(await overviewResponse.json());
@@ -785,7 +852,7 @@ function StudentDashboard({ contact, onSignOut }) {
           <a href="#progress">Progress</a>
           <a href="#payments">Payments</a>
         </nav>
-        <div className="profile-actions">
+        <div className="profile-actions" ref={menuRef}>
           <span className="student-name">{overview.profile?.phone || contact}</span>
           <button
             className="user-menu-button"
@@ -801,12 +868,12 @@ function StudentDashboard({ contact, onSignOut }) {
             <div className="user-menu">
               <strong>{overview.profile?.display_name || 'Student'}</strong>
               <span>{contact}</span>
-              <button type="button" onClick={() => openPanel('instructor')}>Profile</button>
-              <button type="button" onClick={() => showAction('Your inbox is up to date.')}>Inbox</button>
-              <button type="button" onClick={() => openPanel('payments')}>Wallet</button>
-              <button type="button" onClick={() => showAction('FirstGear help is available from the support centre.')}>Help</button>
-              <button type="button" onClick={() => showAction('Safety guidance and driving support are available here.')}>Safety</button>
-              <button type="button" onClick={onSignOut}>Sign out</button>
+              <button type="button" onClick={() => menuAction(() => setActiveTab('account'))}>Profile</button>
+              <button type="button" onClick={() => menuAction(() => openPanel('notifications'))}>Inbox</button>
+              <button type="button" onClick={() => menuAction(() => openPanel('payments'))}>Wallet</button>
+              <button type="button" onClick={() => menuAction(() => showAction('FirstGear help is available from the support centre.'))}>Help</button>
+              <button type="button" onClick={() => menuAction(() => showAction('Safety guidance and driving support are available here.'))}>Safety</button>
+              <button type="button" onClick={() => menuAction(onSignOut)}>Sign out</button>
             </div>
           )}
         </div>
@@ -982,6 +1049,12 @@ function StudentDashboard({ contact, onSignOut }) {
                 <input id="booking-date" type="date" value={bookingDate} min={new Date().toISOString().slice(0, 10)} onChange={(event) => setBookingDate(event.target.value)} required />
                 <label htmlFor="booking-time">Start time</label>
                 <input id="booking-time" type="time" value={bookingTime} onChange={(event) => setBookingTime(event.target.value)} required />
+                <label htmlFor="booking-instructor">Instructor (optional)</label>
+                <select id="booking-instructor" value={selectedInstructorId} onChange={(event) => setSelectedInstructorId(event.target.value)}>
+                  <option value="">Let FirstGear assign an instructor</option>
+                  {instructors.map((availableInstructor) => <option key={availableInstructor.id} value={availableInstructor.id}>{availableInstructor.display_name}</option>)}
+                </select>
+                <p className="muted">You can request a lesson now and an administrator will assign an instructor if you do not choose one.</p>
                 <div className="booking-form-actions">
                   <button className="book-button" type="submit" disabled={bookingLoading}>{bookingLoading ? 'Booking...' : 'Confirm booking'}</button>
                   <button className="text-button" type="button" onClick={() => setSelectedLesson(null)}>Cancel</button>
@@ -1061,6 +1134,7 @@ function StudentDashboard({ contact, onSignOut }) {
           <span className="nav-icon">●</span><span>Account</span>
         </button>
       </nav>
+      <PortalFooter />
     </main>
   );
 }

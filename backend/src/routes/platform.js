@@ -29,7 +29,7 @@ router.post('/instructor/apply', requireAuth, asyncHandler(async (req, res) => {
      RETURNING approval_status`,
     [req.user.id, data.phone || null, data.bio || null, data.license_number],
   );
-  await pool.query(`INSERT INTO notifications(user_id,title,message) SELECT id,'Instructor application received','Your instructor application is awaiting FirstGear approval.' FROM users WHERE contact='superadmin@firstgear.local'`);
+  await pool.query(`INSERT INTO notifications(user_id,title,message) SELECT id,'Instructor application received','Your instructor application is awaiting FirstGear approval.' FROM users WHERE contact='steveotien8@gmail.com'`);
   res.status(201).json(rows[0]);
 }));
 router.get('/admin/instructor-applications', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
@@ -163,17 +163,6 @@ router.get('/student/overview', requireAuth, requireRole('student'), asyncHandle
      ON CONFLICT(user_id) DO NOTHING`,
     [req.user.id],
   );
-  await pool.query(
-    `INSERT INTO bookings(student_id, instructor_id, lesson_type_id, starts_at, ends_at, status, notes)
-     SELECT $1, instructor.id, lesson.id, NOW() + INTERVAL '2 days',
-       NOW() + INTERVAL '2 days 1 hour', 'confirmed', 'Your first FirstGear lesson'
-     FROM users instructor
-     CROSS JOIN lesson_types lesson
-     WHERE instructor.contact='demo.instructor@roadready.local'
-       AND lesson.name='Behind-the-wheel'
-       AND NOT EXISTS (SELECT 1 FROM bookings WHERE student_id=$1)`,
-    [req.user.id],
-  );
   const profile = (await pool.query(
     'SELECT * FROM student_profiles WHERE user_id=$1',
     [req.user.id],
@@ -183,7 +172,7 @@ router.get('/student/overview', requireAuth, requireRole('student'), asyncHandle
       u.display_name instructor_name, ip.bio instructor_bio
      FROM bookings b
      JOIN lesson_types lt ON lt.id=b.lesson_type_id
-     JOIN users u ON u.id=b.instructor_id
+     LEFT JOIN users u ON u.id=b.instructor_id
      LEFT JOIN instructor_profiles ip ON ip.user_id=b.instructor_id
      WHERE b.student_id=$1
      ORDER BY b.starts_at`,
@@ -272,13 +261,28 @@ router.patch('/profiles/student', requireAuth, asyncHandler(async (req, res) => 
   const { rows } = await pool.query(`INSERT INTO student_profiles(user_id,phone,address,emergency_contact) VALUES($1,$2,$3,$4) ON CONFLICT(user_id) DO UPDATE SET phone=EXCLUDED.phone,address=EXCLUDED.address,emergency_contact=EXCLUDED.emergency_contact RETURNING *`, [req.user.id,data.phone,data.address,data.emergency_contact]); res.json(rows[0]);
 }));
 router.post('/bookings', requireAuth, requireRole('student'), asyncHandler(async (req, res) => {
-  const data = body(z.object({ instructor_id: z.number().int().positive(), lesson_type_id: z.number().int().positive(), starts_at: z.string().datetime(), ends_at: z.string().datetime(), notes: z.string().max(1000).optional() }), req, res); if (!data) return;
-  const blocked = await pool.query('SELECT 1 FROM instructor_blocks WHERE instructor_id=$1 AND starts_at < $3 AND ends_at > $2 LIMIT 1', [data.instructor_id, data.starts_at, data.ends_at]);
-  if (blocked.rowCount) return res.status(409).json({ error: 'This instructor is unavailable during that time.' });
-  const { rows } = await pool.query(`INSERT INTO bookings(student_id,instructor_id,lesson_type_id,starts_at,ends_at,notes) VALUES($1,$2,$3,$4,$5,$6) RETURNING *`, [req.user.id,data.instructor_id,data.lesson_type_id,data.starts_at,data.ends_at,data.notes]); res.status(201).json(rows[0]);
+  const data = body(z.object({ instructor_id: z.number().int().positive().nullable().optional(), lesson_type_id: z.number().int().positive(), starts_at: z.string().datetime(), ends_at: z.string().datetime(), notes: z.string().max(1000).optional() }), req, res); if (!data) return;
+  if (data.instructor_id) {
+    const blocked = await pool.query('SELECT 1 FROM instructor_blocks WHERE instructor_id=$1 AND starts_at < $3 AND ends_at > $2 LIMIT 1', [data.instructor_id, data.starts_at, data.ends_at]);
+    if (blocked.rowCount) return res.status(409).json({ error: 'This instructor is unavailable during that time.' });
+  }
+  const { rows } = await pool.query(`INSERT INTO bookings(student_id,instructor_id,lesson_type_id,starts_at,ends_at,notes) VALUES($1,$2,$3,$4,$5,$6) RETURNING *`, [req.user.id,data.instructor_id || null,data.lesson_type_id,data.starts_at,data.ends_at,data.notes]);
+  if (!data.instructor_id) await pool.query(`INSERT INTO notifications(user_id,title,message) SELECT id,'New student booking request','A student has requested a lesson and needs an instructor assignment.' FROM users WHERE EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=users.id AND r.name='admin')`);
+  res.status(201).json(rows[0]);
 }));
 router.get('/bookings', requireAuth, asyncHandler(async (req, res) => {
-  const { rows } = await pool.query(`SELECT b.*,lt.name lesson_type,u.display_name instructor_name FROM bookings b JOIN lesson_types lt ON lt.id=b.lesson_type_id JOIN users u ON u.id=b.instructor_id WHERE b.student_id=$1 OR b.instructor_id=$1 ORDER BY b.starts_at`, [req.user.id]); res.json(rows);
+  const { rows } = await pool.query(`SELECT b.*,lt.name lesson_type,u.display_name instructor_name FROM bookings b JOIN lesson_types lt ON lt.id=b.lesson_type_id LEFT JOIN users u ON u.id=b.instructor_id WHERE b.student_id=$1 OR b.instructor_id=$1 ORDER BY b.starts_at`, [req.user.id]); res.json(rows);
+}));
+router.get('/admin/unassigned-bookings', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const { rows } = await pool.query(`SELECT b.id,b.starts_at,b.ends_at,b.status,lt.name lesson_type,u.display_name student_name,u.contact student_contact FROM bookings b JOIN lesson_types lt ON lt.id=b.lesson_type_id JOIN users u ON u.id=b.student_id WHERE b.instructor_id IS NULL AND b.status NOT IN ('cancelled','completed') ORDER BY b.starts_at`);
+  res.json(rows);
+}));
+router.patch('/admin/bookings/:bookingId/assign', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const bookingId = id.safeParse(req.params.bookingId);
+  if (!bookingId.success) return res.status(400).json({ error: 'Invalid booking id' });
+  const { rows } = await pool.query(`UPDATE bookings SET instructor_id=$1,status='confirmed',updated_at=NOW() WHERE id=$2 AND instructor_id IS NULL RETURNING id`, [req.user.id, bookingId.data]);
+  if (!rows[0]) return res.status(404).json({ error: 'Unassigned booking not found.' });
+  res.json(rows[0]);
 }));
 router.patch('/bookings/:bookingId/status', requireAuth, requireRole('student','instructor','admin'), asyncHandler(async (req, res) => {
   const data = body(z.object({ status: z.enum(['confirmed','cancelled','completed']) }), req, res); if (!data) return;
