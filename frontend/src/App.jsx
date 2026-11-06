@@ -301,6 +301,7 @@ function AdminDashboard({ contact, user, onSignOut }) {
   const [unassignedBookings, setUnassignedBookings] = useState([]);
   const [lessonTypes, setLessonTypes] = useState([]);
   const [submittedPayments, setSubmittedPayments] = useState([]);
+  const [newLessonType, setNewLessonType] = useState({ name: '', description: '', duration_minutes: 120, price_cents: 9000 });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const loadApplications = async () => {
@@ -396,6 +397,22 @@ function AdminDashboard({ contact, user, onSignOut }) {
     }
     setLessonTypes((current) => current.map((item) => item.id === result.id ? result : item));
   };
+  const createLessonType = async (event) => {
+    event.preventDefault();
+    const response = await fetch(`${API_BASE}/api/admin/lesson-types`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(newLessonType),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      setError(result.error || 'Unable to create lesson option.');
+      return;
+    }
+    setLessonTypes((current) => [result, ...current]);
+    setNewLessonType({ name: '', description: '', duration_minutes: 120, price_cents: 9000 });
+  };
   const approvePayment = async (id) => {
     const response = await fetch(`${API_BASE}/api/payments/${id}/approve`, { method: 'PATCH', credentials: 'include' });
     const result = await response.json();
@@ -439,6 +456,14 @@ function AdminDashboard({ contact, user, onSignOut }) {
         <section className="dashboard-panel admin-applications">
           <div className="panel-heading"><div><p className="eyebrow">LESSON OPTIONS</p><h2>Manage lesson prices</h2></div><button className="text-button" type="button" onClick={loadLessonTypes}>Refresh</button></div>
           <p className="muted">These options appear in student booking. The default extended lesson is 2 hours for £90.</p>
+          <form className="profile-form" onSubmit={createLessonType}>
+            <label htmlFor="new-lesson-name">New lesson name</label>
+            <input id="new-lesson-name" value={newLessonType.name} onChange={(event) => setNewLessonType({ ...newLessonType, name: event.target.value })} placeholder="e.g. Motorway practice" required />
+            <label htmlFor="new-lesson-description">Description</label>
+            <input id="new-lesson-description" value={newLessonType.description} onChange={(event) => setNewLessonType({ ...newLessonType, description: event.target.value })} />
+            <div className="form-row"><label htmlFor="new-lesson-duration">Minutes<input id="new-lesson-duration" type="number" min="1" value={newLessonType.duration_minutes} onChange={(event) => setNewLessonType({ ...newLessonType, duration_minutes: Number(event.target.value) })} required /></label><label htmlFor="new-lesson-price">Price £<input id="new-lesson-price" type="number" min="0" step="0.01" value={(newLessonType.price_cents / 100).toFixed(2)} onChange={(event) => setNewLessonType({ ...newLessonType, price_cents: Math.round(Number(event.target.value) * 100) })} required /></label></div>
+            <button className="book-button compact" type="submit">Add lesson option</button>
+          </form>
           {lessonTypes.map((lessonType) => <div className="application-row" key={lessonType.id}>
             <div className="lesson-type-editor"><input aria-label="Lesson name" value={lessonType.name} onChange={(event) => setLessonTypes((current) => current.map((item) => item.id === lessonType.id ? { ...item, name: event.target.value } : item))} /><div><label>Minutes <input type="number" min="1" value={lessonType.duration_minutes} onChange={(event) => setLessonTypes((current) => current.map((item) => item.id === lessonType.id ? { ...item, duration_minutes: Number(event.target.value) } : item))} /></label><label>Price £ <input type="number" min="0" step="0.01" value={(lessonType.price_cents / 100).toFixed(2)} onChange={(event) => setLessonTypes((current) => current.map((item) => item.id === lessonType.id ? { ...item, price_cents: Math.round(Number(event.target.value) * 100) } : item))} /></label></div></div>
             <div className="account-role-control"><span className={`status-pill ${lessonType.active ? 'approved' : 'rejected'}`}>{lessonType.active ? 'Active' : 'Hidden'}</span><button className="book-button compact" type="button" onClick={() => updateLessonType(lessonType)}>Save</button><button className="text-button" type="button" onClick={() => updateLessonType({ ...lessonType, active: !lessonType.active })}>{lessonType.active ? 'Hide' : 'Enable'}</button></div>
