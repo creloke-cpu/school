@@ -709,6 +709,90 @@ input[aria-invalid='true'] {
   color: #68728a;
 }
 
+.payment-panel {
+  display: grid;
+  gap: 20px;
+}
+
+.bank-details,
+.payment-reference-form,
+.apple-pay-info {
+  border: 1px solid #e5e9f2;
+  border-radius: 10px;
+  padding: 18px;
+  background: #fafbfe;
+}
+
+.bank-details h3 {
+  margin: 0 0 8px;
+  color: #17213a;
+}
+
+.bank-details dl {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0 0;
+}
+
+.bank-details dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid #e5e9f2;
+  padding-bottom: 8px;
+}
+
+.bank-details dt {
+  color: #68728a;
+}
+
+.bank-details dd {
+  margin: 0;
+  color: #17213a;
+  font-weight: 700;
+  text-align: right;
+}
+
+.payment-reference-form {
+  display: grid;
+  gap: 10px;
+}
+
+.payment-reference-form label {
+  color: #17213a;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.payment-reference-form input {
+  border: 1px solid #d5d9e5;
+  border-radius: 7px;
+  padding: 11px;
+  color: #17213a;
+  background: #fff;
+}
+
+.form-success {
+  margin: 0;
+  color: #16834b;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.apple-pay-info {
+  border-color: #dedcff;
+  background: #f0efff;
+}
+
+.apple-pay-info strong {
+  color: #2f286e;
+}
+
+.apple-pay-info .text-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .detail-list {
   display: grid;
   gap: 10px;

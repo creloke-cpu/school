@@ -692,6 +692,8 @@ function StudentDashboard({ contact, onSignOut }) {
   const [rescheduleDate, setRescheduleDate] = useState('');
   const [rescheduleTime, setRescheduleTime] = useState('10:00');
   const [activePanel, setActivePanel] = useState(null);
+  const [paymentReference, setPaymentReference] = useState('');
+  const [paymentReferenceStatus, setPaymentReferenceStatus] = useState('');
   const [instructors, setInstructors] = useState([]);
   const [selectedInstructorId, setSelectedInstructorId] = useState('');
   const [instructorApplication, setInstructorApplication] = useState({ display_name: '', phone: '', bio: '', license_number: '' });
@@ -755,6 +757,16 @@ function StudentDashboard({ contact, onSignOut }) {
   const menuAction = (action) => {
     setUserMenuOpen(false);
     action();
+  };
+  const submitPaymentReference = (event) => {
+    event.preventDefault();
+    const reference = paymentReference.trim();
+    if (!reference) {
+      setPaymentReferenceStatus('Enter the reference shown on your bank transfer.');
+      return;
+    }
+    setPaymentReferenceStatus(`Reference ${reference} submitted for FirstGear to verify.`);
+    setPaymentReference('');
   };
 
   const submitBooking = async (event) => {
@@ -1011,7 +1023,32 @@ function StudentDashboard({ contact, onSignOut }) {
               </form>
             )}
             {activePanel === 'instructor' && <div className="profile-detail"><span className="large-avatar">{instructor.slice(0, 2).toUpperCase()}</span><h3>{instructor}</h3><p>{lesson?.instructor_bio || 'Experienced FirstGear driving instructor.'}</p><p className="muted">Assigned to your upcoming lessons.</p><button className="book-button" type="button" onClick={() => setActivePanel('message')}>Message {instructor}</button></div>}
-            {activePanel === 'payments' && <div className="detail-list">{overview.payments.length ? overview.payments.map((payment) => <div className="detail-row" key={payment.id}><span>{new Date(payment.created_at).toLocaleDateString()}</span><strong>£{(payment.amount_cents / 100).toFixed(2)}</strong><span className="status-pill">{payment.status}</span></div>) : <p className="muted">No payment history yet.</p>}</div>}
+            {activePanel === 'payments' && <div className="payment-panel">
+              <div className="bank-details">
+                <p className="eyebrow">BANK TRANSFER</p>
+                <h3>Pay FirstGear by bank transfer</h3>
+                <p className="muted">Use these dummy details for the prototype. Replace them with your real business account before launch.</p>
+                <dl>
+                  <div><dt>Account name</dt><dd>FirstGear Driving School</dd></div>
+                  <div><dt>Sort code</dt><dd>20-45-67</dd></div>
+                  <div><dt>Account number</dt><dd>12345678</dd></div>
+                  <div><dt>Amount</dt><dd>£45.00 per hour</dd></div>
+                </dl>
+              </div>
+              <form className="payment-reference-form" onSubmit={submitPaymentReference}>
+                <label htmlFor="payment-reference">Bank transfer reference</label>
+                <input id="payment-reference" value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} placeholder="e.g. FG-STEVE-001" maxLength={40} />
+                <p className="muted">After paying, enter the reference from your bank receipt. FirstGear will verify it before marking the payment as paid.</p>
+                <button className="book-button" type="submit">Submit reference</button>
+                {paymentReferenceStatus && <p className="form-success" role="status">{paymentReferenceStatus}</p>}
+              </form>
+              <div className="apple-pay-info">
+                <strong>Apple Pay</strong>
+                <p className="muted">For real Apple Pay, we should connect a Stripe Payment Element and verify payments with a server-side webhook. It cannot be safely enabled with dummy account details.</p>
+                <button className="text-button" type="button" disabled>Apple Pay coming soon</button>
+              </div>
+              <div className="detail-list">{overview.payments.length ? overview.payments.map((payment) => <div className="detail-row" key={payment.id}><span>{new Date(payment.created_at).toLocaleDateString()}</span><strong>£{(payment.amount_cents / 100).toFixed(2)}</strong><span className="status-pill">{payment.status}</span></div>) : <p className="muted">No payment history yet.</p>}</div>
+            </div>}
             {activePanel === 'history' && <div className="detail-list">{overview.bookings.length ? overview.bookings.map((booking) => <div className="detail-row" key={booking.id}><span>{new Date(booking.starts_at).toLocaleDateString()}</span><strong>{booking.lesson_type}</strong><span className="status-pill">{booking.status}</span></div>) : <p className="muted">No lesson history yet.</p>}</div>}
             {activePanel === 'notifications' && <div className="detail-list">{overview.notifications.length ? overview.notifications.map((notification) => <div className="notification-item" key={notification.id}><strong>{notification.title}</strong><p>{notification.message}</p><span>{new Date(notification.created_at).toLocaleDateString()}</span></div>) : <p className="muted">You have no notifications.</p>}</div>}
           </section>
