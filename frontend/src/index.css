@@ -1820,4 +1820,43 @@ input[aria-invalid='true'] {
 .status-pill.approved { background: #d8f1df; color: #176232; }
 .status-pill.rejected { background: #f9dada; color: #8d2929; }
 .book-button.compact { padding: 9px 14px; }
+
+/* FirstGear action colour */
+.book-button,
+.continue-button,
+.secondary-button,
+.landing-signin {
+  border-color: #e50914;
+  color: #fff;
+  background: #e50914;
+}
+
+.book-button:hover,
+.continue-button:hover,
+.secondary-button:hover,
+.landing-signin:hover {
+  color: #fff;
+  background: #b80710;
+}
+
+.secondary-button {
+  border-width: 1px;
+}
+
+.login-page .footer {
+  width: 100%;
+  margin: auto 0 0;
+  padding-right: max(20px, 7vw);
+  padding-left: max(20px, 7vw);
+  background: #000;
+}
+
+.login-page .continue-button {
+  background: #e50914;
+}
+
+.login-page .continue-button:hover {
+  background: #b80710;
+}
+
 @media (max-width: 760px) { .landing-hero, .landing-cards, .landing-stats, .landing-preview, .stats-grid { grid-template-columns: 1fr; } .landing-hero { background: #f5f7f3; padding-top: 5vh; } .landing-header { padding: 20px; } .landing-hero, .landing-info, .landing-preview { padding-left: 20px; padding-right: 20px; } .app-screenshot { justify-self: center; transform: none; } .application-row { display: grid; } .application-status { justify-items: start; } }
