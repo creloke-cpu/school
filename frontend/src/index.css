@@ -1815,6 +1815,52 @@ input[aria-invalid='true'] {
 .account-role-control select { border: 1px solid #d5ded6; border-radius: 8px; padding: 9px 12px; color: #17211b; background: #fff; }
 .account-role-control select:disabled { opacity: .6; cursor: not-allowed; }
 .admin-accounts { margin-top: 24px; }
+.activity-stats {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  margin: 20px 0;
+}
+
+.activity-table {
+  margin-top: 20px;
+  overflow-x: auto;
+  border: 1px solid #e1e6e1;
+  border-radius: 10px;
+}
+
+.activity-table-head,
+.activity-table-row {
+  display: grid;
+  grid-template-columns: 1.2fr 1.2fr 1fr .8fr .8fr .55fr;
+  min-width: 860px;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 16px;
+}
+
+.activity-table-head {
+  color: #68746b;
+  background: #f7f8f7;
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.activity-table-row {
+  border-top: 1px solid #e1e6e1;
+  color: #17211b;
+  font-size: .82rem;
+}
+
+.activity-table-row span {
+  display: grid;
+  gap: 4px;
+}
+
+.activity-table-row small {
+  color: #68746b;
+}
+
 .status-pill { padding: 5px 10px; border-radius: 999px; font-size: .78rem; text-transform: capitalize; }
 .status-pill.pending { background: #fff0c2; color: #765a00; }
 .status-pill.approved { background: #d8f1df; color: #176232; }
@@ -1859,7 +1905,7 @@ input[aria-invalid='true'] {
   background: #b80710;
 }
 
-@media (max-width: 760px) { .landing-hero, .landing-cards, .landing-stats, .landing-preview, .stats-grid { grid-template-columns: 1fr; } .landing-hero { background: #f5f7f3; padding-top: 5vh; } .landing-header { padding: 20px; } .landing-hero, .landing-info, .landing-preview { padding-left: 20px; padding-right: 20px; } .app-screenshot { justify-self: center; transform: none; } .application-row { display: grid; } .application-status { justify-items: start; } }
+@media (max-width: 760px) { .landing-hero, .landing-cards, .landing-stats, .landing-preview, .stats-grid, .activity-stats { grid-template-columns: 1fr; } .landing-hero { background: #f5f7f3; padding-top: 5vh; } .landing-header { padding: 20px; } .landing-hero, .landing-info, .landing-preview { padding-left: 20px; padding-right: 20px; } .app-screenshot { justify-self: center; transform: none; } .application-row { display: grid; } .application-status { justify-items: start; } }
 
 /* FirstGear brand system: red, black, and neutral surfaces */
 .logo,

@@ -75,12 +75,41 @@ router.get('/admin/lesson-types', requireAuth, requireRole('admin'), asyncHandle
 }));
 router.get('/admin/payments', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   res.json((await pool.query(
-    `SELECT p.id,p.booking_id,p.amount_cents,p.status,p.provider_reference,p.created_at,
+    `SELECT p.id,p.booking_id,p.amount_cents,p.lesson_amount_cents,p.management_fee_cents,p.status,p.provider_reference,p.created_at,
       s.display_name student_name,s.contact student_contact,lt.name lesson_type
      FROM payments p JOIN bookings b ON b.id=p.booking_id
      JOIN users s ON s.id=b.student_id JOIN lesson_types lt ON lt.id=b.lesson_type_id
      WHERE p.status='submitted' ORDER BY p.created_at`,
   )).rows);
+}));
+router.get('/admin/activity', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const [summary, bookings] = await Promise.all([
+    pool.query(
+      `SELECT
+        COUNT(*)::int total_bookings,
+        COUNT(*) FILTER (WHERE b.status='pending')::int unconfirmed_bookings,
+        COUNT(*) FILTER (WHERE b.status='confirmed')::int confirmed_bookings,
+        COUNT(*) FILTER (WHERE b.instructor_id IS NOT NULL)::int instructor_taken_bookings,
+        COUNT(DISTINCT b.student_id)::int active_students,
+        COALESCE(SUM(p.management_fee_cents) FILTER (WHERE p.status='paid'),0)::int management_fees_cents
+       FROM bookings b LEFT JOIN payments p ON p.booking_id=b.id`,
+    ),
+    pool.query(
+      `SELECT b.id,b.starts_at,b.ends_at,b.status,b.created_at,
+        s.display_name student_name,s.contact student_contact,
+        i.display_name instructor_name,
+        lt.name lesson_type,lt.duration_minutes,lt.price_cents,
+        p.status payment_status,p.amount_cents,p.management_fee_cents,p.provider_reference
+       FROM bookings b
+       JOIN users s ON s.id=b.student_id
+       LEFT JOIN users i ON i.id=b.instructor_id
+       JOIN lesson_types lt ON lt.id=b.lesson_type_id
+       LEFT JOIN payments p ON p.booking_id=b.id
+       ORDER BY b.created_at DESC
+       LIMIT 250`,
+    ),
+  ]);
+  res.json({ summary: summary.rows[0], bookings: bookings.rows });
 }));
 router.patch('/admin/lesson-types/:lessonTypeId', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const lessonTypeId = id.safeParse(req.params.lessonTypeId);
@@ -346,8 +375,9 @@ router.post('/bookings', requireAuth, requireRole('student'), asyncHandler(async
     await client.query('BEGIN');
     booking = (await client.query(`INSERT INTO bookings(student_id,instructor_id,lesson_type_id,starts_at,ends_at,notes) VALUES($1,$2,$3,$4,$5,$6) RETURNING *`, [req.user.id,data.instructor_id || null,data.lesson_type_id,data.starts_at,data.ends_at,data.notes])).rows[0];
     payment = (await client.query(
-      `INSERT INTO payments(booking_id,user_id,amount_cents,status) VALUES($1,$2,$3,'pending') RETURNING id,booking_id,amount_cents,status`,
-      [booking.id, req.user.id, lesson.price_cents],
+      `INSERT INTO payments(booking_id,user_id,amount_cents,lesson_amount_cents,management_fee_cents,status)
+       VALUES($1,$2,$3,$4,$5,'pending') RETURNING id,booking_id,amount_cents,lesson_amount_cents,management_fee_cents,status`,
+      [booking.id, req.user.id, lesson.price_cents + 100, lesson.price_cents, 100],
     )).rows[0];
     await client.query('COMMIT');
   } catch (error) {

@@ -301,6 +301,7 @@ function AdminDashboard({ contact, user, onSignOut }) {
   const [unassignedBookings, setUnassignedBookings] = useState([]);
   const [lessonTypes, setLessonTypes] = useState([]);
   const [submittedPayments, setSubmittedPayments] = useState([]);
+  const [studentActivity, setStudentActivity] = useState({ summary: {}, bookings: [] });
   const [newLessonType, setNewLessonType] = useState({ name: '', description: '', duration_minutes: 120, price_cents: 9000 });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -341,8 +342,14 @@ function AdminDashboard({ contact, user, onSignOut }) {
     if (!response.ok) throw new Error(result.error || 'Unable to load submitted payments.');
     setSubmittedPayments(result);
   };
+  const loadStudentActivity = async () => {
+    const response = await fetch(`${API_BASE}/api/admin/activity`, { credentials: 'include' });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Unable to load student activity.');
+    setStudentActivity(result);
+  };
   useEffect(() => {
-    Promise.all([loadApplications(), loadAccounts(), loadUnassignedBookings(), loadLessonTypes(), loadSubmittedPayments()]).catch((requestError) => setError(requestError.message));
+    Promise.all([loadApplications(), loadAccounts(), loadUnassignedBookings(), loadLessonTypes(), loadSubmittedPayments(), loadStudentActivity()]).catch((requestError) => setError(requestError.message));
   }, []);
   const decide = async (id, approval_status) => {
     setError('');
@@ -435,6 +442,7 @@ function AdminDashboard({ contact, user, onSignOut }) {
       return;
     }
     loadSubmittedPayments();
+    loadStudentActivity();
   };
   const pending = applications.filter((application) => application.approval_status === 'pending');
   return (
@@ -448,6 +456,12 @@ function AdminDashboard({ contact, user, onSignOut }) {
         <h1>Instructor approvals</h1>
         <p className="view-intro">Review instructor applications before they can accept student bookings.</p>
         <div className="stats-grid"><div><strong>{pending.length}</strong><span>Pending review</span></div><div><strong>{applications.filter((application) => application.approval_status === 'approved').length}</strong><span>Approved instructors</span></div><div><strong>{applications.length}</strong><span>Total applications</span></div></div>
+        <section className="dashboard-panel admin-applications">
+          <div className="panel-heading"><div><p className="eyebrow">STUDENT ACTIVITY</p><h2>Booking and fee overview</h2></div><button className="text-button" type="button" onClick={loadStudentActivity}>Refresh</button></div>
+          <div className="stats-grid activity-stats"><div><strong>{studentActivity.summary.active_students || 0}</strong><span>Active students</span></div><div><strong>{studentActivity.summary.total_bookings || 0}</strong><span>Total bookings</span></div><div><strong>{studentActivity.summary.unconfirmed_bookings || 0}</strong><span>Unconfirmed</span></div><div><strong>{studentActivity.summary.confirmed_bookings || 0}</strong><span>Confirmed</span></div><div><strong>{studentActivity.summary.instructor_taken_bookings || 0}</strong><span>Taken by instructor</span></div><div><strong>£{((studentActivity.summary.management_fees_cents || 0) / 100).toFixed(2)}</strong><span>Paid management fees</span></div></div>
+          <p className="muted">Each new student booking includes a £1.00 management fee in the payment total. This is recorded here for reconciliation.</p>
+          <div className="activity-table"><div className="activity-table-head"><span>Student</span><span>Lesson</span><span>Instructor</span><span>Booking</span><span>Payment</span><span>Fee</span></div>{studentActivity.bookings.length ? studentActivity.bookings.map((booking) => <div className="activity-table-row" key={booking.id}><span><strong>{booking.student_name}</strong><small>{booking.student_contact}</small></span><span>{booking.lesson_type}<small>{new Date(booking.starts_at).toLocaleString()}</small></span><span>{booking.instructor_name || 'Not taken'}</span><span className={`status-pill status-${booking.status}`}>{booking.status}</span><span className={`status-pill status-${booking.payment_status || 'pending'}`}>{booking.payment_status || 'pending'}</span><span>£{((booking.management_fee_cents || 0) / 100).toFixed(2)}</span></div>) : <p className="muted">No student bookings yet.</p>}</div>
+        </section>
         {error && <p className="form-error" role="alert">{error}</p>}
         <section className="dashboard-panel admin-applications">
           <div className="panel-heading"><div><p className="eyebrow">APPLICATIONS</p><h2>Instructor applications</h2></div><button className="text-button" type="button" onClick={loadApplications}>Refresh</button></div>
