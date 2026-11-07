@@ -177,7 +177,19 @@ router.patch('/admin/instructor-applications/:instructorId', requireAuth, requir
     `INSERT INTO notifications(user_id,title,message) VALUES($1,$2,$3)`,
     [instructorId.data, `Instructor application ${data.approval_status}`, `Your FirstGear instructor application has been ${data.approval_status}.`],
   );
+  if (data.approval_status === 'approved') {
+    await pool.query(`INSERT INTO user_roles(user_id,role_id) SELECT $1,id FROM roles WHERE name='instructor' ON CONFLICT DO NOTHING`, [instructorId.data]);
+  }
   res.json(rows[0]);
+}));
+router.get('/admin/instructors', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  res.json((await pool.query(
+    `SELECT u.id,u.display_name,u.contact
+     FROM instructor_profiles ip
+     JOIN users u ON u.id=ip.user_id
+     WHERE ip.active=true AND ip.approval_status='approved'
+     ORDER BY u.display_name`,
+  )).rows);
 }));
 router.post('/instructor/messages', requireAuth, requireRole('instructor','admin'), asyncHandler(async (req, res) => {
   const data = body(z.object({
@@ -438,9 +450,18 @@ router.get('/admin/unassigned-bookings', requireAuth, requireRole('admin'), asyn
 }));
 router.patch('/admin/bookings/:bookingId/assign', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const bookingId = id.safeParse(req.params.bookingId);
+  const data = body(z.object({ instructor_id: z.number().int().positive() }), req, res);
   if (!bookingId.success) return res.status(400).json({ error: 'Invalid booking id' });
-  const { rows } = await pool.query(`UPDATE bookings SET instructor_id=$1,status='confirmed',updated_at=NOW() WHERE id=$2 AND instructor_id IS NULL RETURNING id`, [req.user.id, bookingId.data]);
+  if (!data) return;
+  const instructor = (await pool.query(
+    `SELECT u.id FROM instructor_profiles ip JOIN users u ON u.id=ip.user_id
+     WHERE u.id=$1 AND ip.active=true AND ip.approval_status='approved'`,
+    [data.instructor_id],
+  )).rows[0];
+  if (!instructor) return res.status(400).json({ error: 'Choose an approved instructor.' });
+  const { rows } = await pool.query(`UPDATE bookings SET instructor_id=$1,status='confirmed',updated_at=NOW() WHERE id=$2 AND instructor_id IS NULL RETURNING id,instructor_id,status`, [data.instructor_id, bookingId.data]);
   if (!rows[0]) return res.status(404).json({ error: 'Unassigned booking not found.' });
+  await pool.query(`INSERT INTO notifications(user_id,title,message) VALUES($1,'Instructor assigned','An instructor has been assigned to your booking.')`, [(await pool.query('SELECT student_id FROM bookings WHERE id=$1', [bookingId.data])).rows[0].student_id]);
   res.json(rows[0]);
 }));
 router.patch('/bookings/:bookingId/status', requireAuth, requireRole('student','instructor','admin'), asyncHandler(async (req, res) => {

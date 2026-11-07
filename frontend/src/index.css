@@ -1861,6 +1861,22 @@ input[aria-invalid='true'] {
   color: #68746b;
 }
 
+.booking-assignment-control {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+  min-width: 190px;
+}
+
+.booking-assignment-control select {
+  width: 100%;
+  border: 1px solid #d5ded6;
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: #17211b;
+  background: #fff;
+}
+
 .status-pill { padding: 5px 10px; border-radius: 999px; font-size: .78rem; text-transform: capitalize; }
 .status-pill.pending { background: #fff0c2; color: #765a00; }
 .status-pill.approved { background: #d8f1df; color: #176232; }

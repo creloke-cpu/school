@@ -299,6 +299,7 @@ function AdminDashboard({ contact, user, onSignOut }) {
   const [applications, setApplications] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [unassignedBookings, setUnassignedBookings] = useState([]);
+  const [approvedInstructors, setApprovedInstructors] = useState([]);
   const [lessonTypes, setLessonTypes] = useState([]);
   const [submittedPayments, setSubmittedPayments] = useState([]);
   const [studentActivity, setStudentActivity] = useState({ summary: {}, bookings: [] });
@@ -330,6 +331,12 @@ function AdminDashboard({ contact, user, onSignOut }) {
     if (!response.ok) throw new Error(result.error || 'Unable to load booking requests.');
     setUnassignedBookings(result);
   };
+  const loadApprovedInstructors = async () => {
+    const response = await fetch(`${API_BASE}/api/admin/instructors`, { credentials: 'include' });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Unable to load approved instructors.');
+    setApprovedInstructors(result);
+  };
   const loadLessonTypes = async () => {
     const response = await fetch(`${API_BASE}/api/admin/lesson-types`, { credentials: 'include' });
     const result = await response.json();
@@ -349,7 +356,7 @@ function AdminDashboard({ contact, user, onSignOut }) {
     setStudentActivity(result);
   };
   useEffect(() => {
-    Promise.all([loadApplications(), loadAccounts(), loadUnassignedBookings(), loadLessonTypes(), loadSubmittedPayments(), loadStudentActivity()]).catch((requestError) => setError(requestError.message));
+    Promise.all([loadApplications(), loadAccounts(), loadUnassignedBookings(), loadApprovedInstructors(), loadLessonTypes(), loadSubmittedPayments(), loadStudentActivity()]).catch((requestError) => setError(requestError.message));
   }, []);
   const decide = async (id, approval_status) => {
     setError('');
@@ -395,14 +402,18 @@ function AdminDashboard({ contact, user, onSignOut }) {
     }
     loadAccounts();
   };
-  const assignBooking = async (id) => {
-    const response = await fetch(`${API_BASE}/api/admin/bookings/${id}/assign`, { method: 'PATCH', credentials: 'include' });
+  const assignBooking = async (id, instructor_id) => {
+    if (!instructor_id) {
+      setError('Choose an approved instructor before assigning this booking.');
+      return;
+    }
+    const response = await fetch(`${API_BASE}/api/admin/bookings/${id}/assign`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ instructor_id: Number(instructor_id) }) });
     const result = await response.json();
     if (!response.ok) {
       setError(result.error || 'Unable to assign booking.');
       return;
     }
-    loadUnassignedBookings();
+    await Promise.all([loadUnassignedBookings(), loadStudentActivity()]);
   };
   const updateLessonType = async (lessonType) => {
     const response = await fetch(`${API_BASE}/api/admin/lesson-types/${lessonType.id}`, {
@@ -502,11 +513,12 @@ function AdminDashboard({ contact, user, onSignOut }) {
           {submittedPayments.length ? submittedPayments.map((payment) => <div className="application-row" key={payment.id}><div><strong>{payment.student_name}</strong><span>{payment.lesson_type} · £{(payment.amount_cents / 100).toFixed(2)}</span><small>Reference: {payment.provider_reference}</small></div><button className="book-button compact" type="button" onClick={() => approvePayment(payment.id)}>Approve payment</button></div>) : <p className="muted">No submitted payments need review.</p>}
         </section>
         <section className="dashboard-panel admin-applications admin-accounts">
-          <div className="panel-heading"><div><p className="eyebrow">BOOKING REQUESTS</p><h2>Unassigned student bookings</h2></div><button className="text-button" type="button" onClick={loadUnassignedBookings}>Refresh</button></div>
+          <div className="panel-heading"><div><p className="eyebrow">BOOKING REQUESTS</p><h2>Unassigned student bookings</h2></div><button className="text-button" type="button" onClick={() => Promise.all([loadUnassignedBookings(), loadApprovedInstructors()])}>Refresh</button></div>
+          <p className="muted">Only approved instructors are available for assignment. Superadmin accounts are not assignable.</p>
           {unassignedBookings.length === 0 ? <p className="muted">No unassigned booking requests.</p> : unassignedBookings.map((booking) => (
             <article className="application-row" key={booking.id}>
               <div><strong>{booking.student_name}</strong><span>{booking.student_contact}</span><small>{booking.lesson_type} · {new Date(booking.starts_at).toLocaleString()}</small></div>
-              <button className="book-button compact" type="button" onClick={() => assignBooking(booking.id)}>Assign to me</button>
+              <div className="booking-assignment-control"><select defaultValue="" aria-label={`Choose instructor for ${booking.student_name}`}><option value="" disabled>Choose instructor</option>{approvedInstructors.map((instructor) => <option key={instructor.id} value={instructor.id}>{instructor.display_name}</option>)}</select><button className="book-button compact" type="button" onClick={(event) => assignBooking(booking.id, event.currentTarget.previousElementSibling.value)}>Assign to instructor</button></div>
             </article>
           ))}
         </section>
