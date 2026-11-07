@@ -303,6 +303,11 @@ function AdminDashboard({ contact, user, onSignOut }) {
   const [lessonTypes, setLessonTypes] = useState([]);
   const [submittedPayments, setSubmittedPayments] = useState([]);
   const [studentActivity, setStudentActivity] = useState({ summary: {}, bookings: [] });
+  const [accountSearch, setAccountSearch] = useState('');
+  const [accountRoleFilter, setAccountRoleFilter] = useState('all');
+  const [accountApprovalFilter, setAccountApprovalFilter] = useState('all');
+  const [accountPage, setAccountPage] = useState(1);
+  const accountPageSize = 8;
   const [newLessonType, setNewLessonType] = useState({ name: '', description: '', duration_minutes: 120, price_cents: 9000 });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -456,6 +461,16 @@ function AdminDashboard({ contact, user, onSignOut }) {
     loadStudentActivity();
   };
   const pending = applications.filter((application) => application.approval_status === 'pending');
+  const filteredAccounts = accounts.filter((account) => {
+    const query = accountSearch.trim().toLowerCase();
+    const matchesSearch = !query || `${account.display_name} ${account.contact}`.toLowerCase().includes(query);
+    const role = account.roles.includes('admin') ? 'admin' : account.roles.includes('instructor') ? 'instructor' : 'student';
+    const matchesRole = accountRoleFilter === 'all' || role === accountRoleFilter;
+    const matchesApproval = accountApprovalFilter === 'all' || account.student_approval_status === accountApprovalFilter;
+    return matchesSearch && matchesRole && matchesApproval;
+  });
+  const accountPageCount = Math.max(1, Math.ceil(filteredAccounts.length / accountPageSize));
+  const visibleAccounts = filteredAccounts.slice((accountPage - 1) * accountPageSize, accountPage * accountPageSize);
   return (
     <main className="dashboard-page">
       <header className="dashboard-header">
@@ -485,12 +500,19 @@ function AdminDashboard({ contact, user, onSignOut }) {
         </section>
         <section className="dashboard-panel admin-applications admin-accounts">
           <div className="panel-heading"><div><p className="eyebrow">ACCOUNT MANAGEMENT</p><h2>Upgrade or downgrade accounts</h2></div><button className="text-button" type="button" onClick={loadAccounts}>Refresh</button></div>
-          {accounts.length === 0 ? <p className="muted">No accounts found.</p> : accounts.map((account) => (
+          <div className="account-toolbar">
+            <label className="search-field" htmlFor="account-search"><span>⌕</span><input id="account-search" type="search" placeholder="Search name or email" value={accountSearch} onChange={(event) => { setAccountSearch(event.target.value); setAccountPage(1); }} /></label>
+            <select value={accountRoleFilter} onChange={(event) => { setAccountRoleFilter(event.target.value); setAccountPage(1); }} aria-label="Filter accounts by role"><option value="all">All roles</option><option value="student">Students</option><option value="instructor">Instructors</option><option value="admin">Admins</option></select>
+            <select value={accountApprovalFilter} onChange={(event) => { setAccountApprovalFilter(event.target.value); setAccountPage(1); }} aria-label="Filter students by approval"><option value="all">All approval states</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select>
+            <span className="muted">{filteredAccounts.length} account{filteredAccounts.length === 1 ? '' : 's'}</span>
+          </div>
+          {accounts.length === 0 ? <p className="muted">No accounts found.</p> : filteredAccounts.length === 0 ? <p className="muted">No accounts match your filters.</p> : visibleAccounts.map((account) => (
             <article className="application-row account-row" key={account.id}>
               <div><strong>{account.display_name}</strong><span>{account.contact}</span><small>Joined {new Date(account.created_at).toLocaleDateString()}</small></div>
               <div className="account-role-control"><span className="status-pill">{account.roles.join(', ')}</span><select value={account.roles.includes('admin') ? 'admin' : account.roles.includes('instructor') ? 'instructor' : 'student'} disabled={account.id === user.id} onChange={(event) => changeRole(account.id, event.target.value)} aria-label={`Change role for ${account.contact}`}><option value="student">Student</option><option value="instructor">Instructor</option><option value="admin">Admin</option></select>{account.roles.includes('student') && <><span className={`status-pill ${account.student_approval_status}`}>{account.student_approval_status}</span><select value={account.student_approval_status} onChange={(event) => changeApproval(account.id, event.target.value)} aria-label={`Change student approval for ${account.contact}`}><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></>}</div>
             </article>
           ))}
+          {filteredAccounts.length > 0 && <div className="pagination account-pagination"><button type="button" disabled={accountPage === 1} onClick={() => setAccountPage(accountPage - 1)}>Previous</button><span>Page {accountPage} of {accountPageCount}</span><button type="button" disabled={accountPage === accountPageCount} onClick={() => setAccountPage(accountPage + 1)}>Next</button></div>}
         </section>
         <section className="dashboard-panel admin-applications">
           <div className="panel-heading"><div><p className="eyebrow">LESSON OPTIONS</p><h2>Manage lesson prices</h2></div><button className="text-button" type="button" onClick={loadLessonTypes}>Refresh</button></div>

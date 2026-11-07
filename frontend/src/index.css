@@ -1815,6 +1815,50 @@ input[aria-invalid='true'] {
 .account-role-control select { border: 1px solid #d5ded6; border-radius: 8px; padding: 9px 12px; color: #17211b; background: #fff; }
 .account-role-control select:disabled { opacity: .6; cursor: not-allowed; }
 .admin-accounts { margin-top: 24px; }
+.account-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0 4px;
+  flex-wrap: wrap;
+}
+
+.account-toolbar .search-field {
+  display: flex;
+  align-items: center;
+  flex: 1 1 240px;
+  gap: 8px;
+  margin: 0;
+  border: 1px solid #d5ded6;
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #fff;
+}
+
+.account-toolbar .search-field span {
+  color: #68746b;
+}
+
+.account-toolbar .search-field input {
+  border: 0;
+  padding: 10px 0;
+  background: transparent;
+}
+
+.account-toolbar > select {
+  border: 1px solid #d5ded6;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #17211b;
+  background: #fff;
+}
+
+.account-pagination {
+  margin-top: 18px;
+  border-top: 1px solid #e1e6e1;
+  padding-top: 16px;
+}
+
 .activity-stats {
   grid-template-columns: repeat(6, minmax(0, 1fr));
   margin: 20px 0;
