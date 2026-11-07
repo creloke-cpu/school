@@ -1860,3 +1860,109 @@ input[aria-invalid='true'] {
 }
 
 @media (max-width: 760px) { .landing-hero, .landing-cards, .landing-stats, .landing-preview, .stats-grid { grid-template-columns: 1fr; } .landing-hero { background: #f5f7f3; padding-top: 5vh; } .landing-header { padding: 20px; } .landing-hero, .landing-info, .landing-preview { padding-left: 20px; padding-right: 20px; } .app-screenshot { justify-self: center; transform: none; } .application-row { display: grid; } .application-status { justify-items: start; } }
+
+/* FirstGear brand system: red, black, and neutral surfaces */
+.logo,
+.dashboard-header .logo,
+.landing-header .logo,
+.mini-logo {
+  color: #e50914;
+}
+
+.dashboard-nav a:hover,
+.dashboard-nav a.active,
+.dashboard-nav button:hover,
+.dashboard-nav button.active,
+.profile-actions button,
+.text-button,
+.user-menu-button,
+.change-link,
+.help-toggle,
+.login-page .secondary-button,
+.login-page .help-toggle,
+.login-page .change-link {
+  color: #e50914;
+}
+
+.user-avatar {
+  background: #e50914;
+}
+
+.burger-icon i {
+  background: #e50914;
+}
+
+.user-menu button:hover {
+  color: #e50914;
+  background: #fff1f1;
+}
+
+.live-label,
+.completed {
+  color: #e50914;
+}
+
+.live-label span {
+  background: #e50914;
+  box-shadow: 0 0 0 4px #ffe0e0;
+}
+
+.landing-page {
+  color: #171717;
+}
+
+.landing-hero {
+  background: linear-gradient(120deg, #f7f7f7 45%, #f5d9d9 45%);
+}
+
+.landing-price-card,
+.landing-preview {
+  background: #171717;
+}
+
+.landing-price-card .eyebrow,
+.preview-copy .eyebrow {
+  color: #ff9a9f;
+}
+
+.road-lines {
+  background: #2b1113;
+}
+
+.road-lines i,
+.landing-stats article > svg,
+.preview-checks svg,
+.feature-icon,
+.progress-bar i,
+.avatar-dot {
+  color: #e50914;
+}
+
+.road-lines i,
+.progress-bar i {
+  background: #e50914;
+}
+
+.avatar-dot,
+.feature-icon {
+  background: #ffe0e0;
+}
+
+.screenshot-greeting {
+  background: #fff0f0;
+}
+
+.feature-icon {
+  border-color: #ffd1d1;
+}
+
+.landing-footer,
+.login-page .footer {
+  background: #000;
+}
+
+.status-pill.approved,
+.status-pill.status-completed {
+  color: #9f0b12;
+  background: #ffe0e0;
+}
