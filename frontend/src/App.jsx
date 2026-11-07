@@ -3,6 +3,8 @@ import { CalendarDays, CarFront, CheckCircle2, Clock3, Gauge, MapPin, ShieldChec
 import './index.css';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
+const isPlaceholderName = (name) => !name || ['student', 'instructor'].includes(name.trim().toLowerCase());
+const displayIdentity = (name, contact) => isPlaceholderName(name) ? contact : name;
 
 const footerLinks = [
   ['FAQ', '#faq'],
@@ -619,6 +621,11 @@ function InstructorDashboard({ contact, user, onSignOut }) {
 
   useEffect(loadOverview, []);
   useEffect(() => {
+    if (overview && isPlaceholderName(overview.profile?.display_name)) {
+      setActionMessage('Please update your name in Profile so students see the correct instructor name.');
+    }
+  }, [overview]);
+  useEffect(() => {
     setMenuOpen(false);
   }, [activeTab]);
   useEffect(() => {
@@ -658,6 +665,7 @@ function InstructorDashboard({ contact, user, onSignOut }) {
 
   if (loading || !overview) return <main className="page"><p className="loading-message">Loading instructor portal...</p></main>;
   const profile = overview.profile || {};
+  const identity = displayIdentity(profile.display_name, contact);
   const upcoming = overview.bookings.filter((booking) => ['pending', 'confirmed'].includes(booking.status));
   const nextLesson = upcoming[0];
   const initials = (profile.display_name || 'Instructor').slice(0, 2).toUpperCase();
@@ -673,17 +681,16 @@ function InstructorDashboard({ contact, user, onSignOut }) {
           <button className={activeTab === 'students' ? 'active' : ''} type="button" onClick={() => setActiveTab('students')}>Students</button>
         </nav>
         <div className="profile-actions" ref={menuRef}>
-          <span className="student-name">{profile.display_name}</span>
           <button className="user-menu-button" type="button" aria-label="Open user menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>
-            <span className="user-avatar">{profile.profile_image ? <img src={profile.profile_image} alt="" /> : initials}</span><span className="burger-icon"><i /><i /><i /></span>
+            <span className="user-avatar">{profile.profile_image ? <img src={profile.profile_image} alt="" /> : identity.slice(0, 2).toUpperCase()}</span><span className="burger-icon"><i /><i /><i /></span>
           </button>
-          {menuOpen && <div className="user-menu"><strong>{profile.display_name}</strong><span>{contact}</span><button type="button" onClick={() => { setActiveTab('account'); setMenuOpen(false); }}>Profile</button><button type="button" onClick={() => { setMenuOpen(false); setActionMessage('Your instructor inbox is up to date.'); }}>Inbox</button><button type="button" onClick={() => { setMenuOpen(false); setActionMessage('Instructor help is available from the support centre.'); }}>Help</button><button type="button" onClick={() => { setMenuOpen(false); setActionMessage('Safety guidance and driving support are available here.'); }}>Safety</button><button type="button" onClick={onSignOut}>Sign out</button></div>}
+          {menuOpen && <div className="user-menu"><strong>{identity}</strong><span>{contact}</span><button type="button" onClick={() => { setActiveTab('account'); setMenuOpen(false); }}>Profile</button><button type="button" onClick={() => { setMenuOpen(false); setActionMessage('Your instructor inbox is up to date.'); }}>Inbox</button><button type="button" onClick={() => { setMenuOpen(false); setActionMessage('Instructor help is available from the support centre.'); }}>Help</button><button type="button" onClick={() => { setMenuOpen(false); setActionMessage('Safety guidance and driving support are available here.'); }}>Safety</button><button type="button" onClick={onSignOut}>Sign out</button></div>}
         </div>
       </header>
       <div className="dashboard-content">
         {actionMessage && <div className="action-message" role="status">{actionMessage}<button type="button" onClick={() => setActionMessage('')}>×</button></div>}
         {activeTab === 'home' && <>
-          <section className="welcome"><div><div className="live-label"><span /> INSTRUCTOR PORTAL</div><h1>Your teaching day</h1><p>Welcome back, {profile.display_name}. Here is what is coming up with your students.</p></div><button className="book-button" type="button" onClick={() => setActiveTab('schedule')}>View schedule</button></section>
+          <section className="welcome"><div><div className="live-label"><span /> INSTRUCTOR PORTAL</div><h1>Your teaching day</h1><p>Welcome back, {identity}. Here is what is coming up with your students.</p></div><button className="book-button" type="button" onClick={() => setActiveTab('schedule')}>View schedule</button></section>
           <section className="stats-grid" aria-label="Instructor summary"><article className="stat-card accent-card"><span className="stat-icon">◷</span><div><strong>{overview.stats.upcomingLessons}</strong><span>Upcoming lessons</span></div></article><article className="stat-card accent-card"><span className="stat-icon">●</span><div><strong>{overview.stats.activeStudents}</strong><span>Active students</span></div></article><article className="stat-card accent-card"><span className="stat-icon">★</span><div><strong>{overview.stats.completedLessons}</strong><span>Lessons completed</span></div></article></section>
           <div className="dashboard-grid"><section className="dashboard-panel next-lesson"><div className="panel-heading"><div><p className="eyebrow">NEXT LESSON</p><h2>{nextLesson?.lesson_type || 'No upcoming lessons'}</h2></div><span className="status-pill">{nextLesson?.status || 'Clear'}</span></div>{nextLesson ? <><div className="lesson-date"><strong>{new Date(nextLesson.starts_at).toLocaleDateString(undefined, { weekday: 'short' }).toUpperCase()}</strong><b>{new Date(nextLesson.starts_at).getDate()}</b><span>{new Date(nextLesson.starts_at).toLocaleDateString(undefined, { month: 'short' }).toUpperCase()}</span></div><div className="lesson-details"><p><strong>{new Date(nextLesson.starts_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – {new Date(nextLesson.ends_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong></p><p>Student: {nextLesson.student_name}</p><p>{nextLesson.notes || 'Prepare for your upcoming lesson.'}</p></div><div className="lesson-actions"><button className="book-button" type="button" onClick={() => updateBooking(nextLesson, 'completed')}>Mark completed</button><button className="text-button" type="button" onClick={() => updateBooking(nextLesson, 'cancelled')}>Cancel lesson</button></div></> : <p className="muted">Your schedule is clear.</p>}</section><section className="dashboard-panel"><div className="panel-heading"><div><p className="eyebrow">AVAILABILITY</p><h2>Teaching hours</h2></div><strong>{overview.availability.length}</strong></div><p className="muted">{overview.blocks.length ? `${overview.blocks.length} blocked period(s) coming up.` : 'Block dates or times when you cannot teach.'}</p><button className="text-button" type="button" onClick={() => setActiveTab('account')}>Manage availability →</button></section></div>
           <section className="dashboard-panel history-panel"><div className="panel-heading"><div><p className="eyebrow">UPCOMING</p><h2>Next students</h2></div><button className="text-button" type="button" onClick={() => setActiveTab('schedule')}>See all →</button></div>{upcoming.slice(0, 3).map((booking) => <div className="history-row" key={booking.id}><span className="history-date">{new Date(booking.starts_at).toLocaleDateString()}</span><strong>{booking.student_name}</strong><span className="history-instructor">{booking.lesson_type}</span><span className="completed">{booking.status}</span></div>)}{!upcoming.length && <p className="muted">No upcoming student lessons.</p>}</section>
@@ -699,7 +706,7 @@ function InstructorDashboard({ contact, user, onSignOut }) {
 }
 
 function ProfileEditor({ profile, endpoint, onSaved, title = 'Edit profile' }) {
-  const [name, setName] = useState(profile.display_name || '');
+  const [name, setName] = useState(displayIdentity(profile.display_name, profile.contact));
   const [image, setImage] = useState(profile.profile_image || '');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -741,7 +748,7 @@ function ProfileEditor({ profile, endpoint, onSaved, title = 'Edit profile' }) {
 
 function InstructorAccount({ profile, onSaved }) {
   const [form, setForm] = useState({
-    display_name: profile.display_name || '',
+    display_name: displayIdentity(profile.display_name, profile.contact),
     contact: profile.contact || '',
     phone: profile.phone || '',
     bio: profile.bio || '',
@@ -939,6 +946,11 @@ function StudentDashboard({ contact, onSignOut }) {
       .catch((error) => setLoadError(error.message));
   }, []);
   useEffect(() => {
+    if (overview && isPlaceholderName(overview.profile?.display_name)) {
+      setActionMessage('Please update your name in Profile so your account is personalised.');
+    }
+  }, [overview]);
+  useEffect(() => {
     fetch(`${API_BASE}/api/instructors`)
       .then((response) => response.ok ? response.json() : [])
       .then(setInstructors)
@@ -962,6 +974,7 @@ function StudentDashboard({ contact, onSignOut }) {
 
   const lesson = overview.nextLesson;
   const instructor = lesson?.instructor_name || 'Not assigned';
+  const identity = displayIdentity(overview.profile?.display_name, contact);
   const completedLessons = overview.progress.completedLessons;
   const progressPercent = overview.progress.overallPercent;
   const showAction = (message, target) => {
@@ -1105,7 +1118,6 @@ function StudentDashboard({ contact, onSignOut }) {
           <button className={activeTab === 'payments' ? 'active' : ''} type="button" onClick={() => selectTab('payments')}>Payments</button>
         </nav>
         <div className="profile-actions" ref={menuRef}>
-          <span className="student-name">{overview.profile?.phone || contact}</span>
           <button
             className="user-menu-button"
             type="button"
@@ -1113,12 +1125,12 @@ function StudentDashboard({ contact, onSignOut }) {
             aria-expanded={userMenuOpen}
             onClick={() => setUserMenuOpen(!userMenuOpen)}
           >
-            <span className="user-avatar">{overview.profile?.profile_image ? <img src={overview.profile.profile_image} alt="" /> : 'S'}</span>
+            <span className="user-avatar">{overview.profile?.profile_image ? <img src={overview.profile.profile_image} alt="" /> : identity.slice(0, 2).toUpperCase()}</span>
             <span className="burger-icon"><i /><i /><i /></span>
           </button>
           {userMenuOpen && (
             <div className="user-menu">
-              <strong>{overview.profile?.display_name || 'Student'}</strong>
+              <strong>{identity}</strong>
               <span>{contact}</span>
               <button type="button" onClick={() => menuAction(() => setActiveTab('account'))}>Profile</button>
               <button type="button" onClick={() => menuAction(() => openPanel('notifications'))}>Inbox</button>
@@ -1138,7 +1150,7 @@ function StudentDashboard({ contact, onSignOut }) {
           <div>
             <div className="live-label"><span /> LIVE STUDENT PORTAL</div>
             <h1>Your driving journey</h1>
-            <p>Welcome back, {overview.profile?.display_name || 'Student'}. Here is everything you need for your next lesson.</p>
+            <p>Welcome back, {identity}. Here is everything you need for your next lesson.</p>
           </div>
           <button className="book-button" type="button" onClick={() => selectTab('book')}>+ Book a lesson</button>
         </section>
