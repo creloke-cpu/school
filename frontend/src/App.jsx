@@ -111,7 +111,7 @@ export default function App() {
   if (!showLogin) return <LandingPage onSignIn={() => setShowLogin(true)} />;
 
   return (
-    <main className="page">
+    <main className="page login-page">
       <header className="header">
         <a className="logo" href="/" aria-label="FirstGear home">FIRSTGEAR</a>
       </header>
