@@ -417,6 +417,20 @@ function AdminDashboard({ contact, user, onSignOut }) {
     }
     loadAccounts();
   };
+  const changeAccountActive = async (id, active) => {
+    const response = await fetch(`${API_BASE}/api/admin/users/${id}/active`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ active }),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      setError(result.error || 'Unable to update account access.');
+      return;
+    }
+    setAccounts((current) => current.map((account) => account.id === id ? { ...account, active: result.active } : account));
+  };
   const assignBooking = async (id, instructor_id) => {
     if (!instructor_id) {
       setError('Choose an approved instructor before assigning this booking.');
@@ -527,7 +541,7 @@ function AdminDashboard({ contact, user, onSignOut }) {
           {accounts.length === 0 ? <p className="muted">No accounts found.</p> : filteredAccounts.length === 0 ? <p className="muted">No accounts match your filters.</p> : visibleAccounts.map((account) => (
             <article className="application-row account-row" key={account.id}>
               <div><strong>{account.display_name}</strong><span>{account.contact}</span><small>Joined {new Date(account.created_at).toLocaleDateString()}</small></div>
-              <div className="account-role-control"><span className="status-pill">{account.roles.join(', ')}</span><select value={account.roles.includes('admin') ? 'admin' : account.roles.includes('instructor') ? 'instructor' : 'student'} disabled={account.id === user.id} onChange={(event) => changeRole(account.id, event.target.value)} aria-label={`Change role for ${account.contact}`}><option value="student">Student</option><option value="instructor">Instructor</option><option value="admin">Admin</option></select>{account.roles.includes('student') && <><span className={`status-pill ${account.student_approval_status}`}>{account.student_approval_status}</span><select value={account.student_approval_status} onChange={(event) => changeApproval(account.id, event.target.value)} aria-label={`Change student approval for ${account.contact}`}><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></>}</div>
+              <div className="account-role-control"><span className={`status-pill ${account.active ? 'approved' : 'rejected'}`}>{account.active ? 'Active' : 'Turned off'}</span><span className="status-pill">{account.roles.join(', ')}</span><select value={account.roles.includes('admin') ? 'admin' : account.roles.includes('instructor') ? 'instructor' : 'student'} disabled={account.id === user.id} onChange={(event) => changeRole(account.id, event.target.value)} aria-label={`Change role for ${account.contact}`}><option value="student">Student</option><option value="instructor">Instructor</option><option value="admin">Admin</option></select>{account.roles.includes('student') && <><span className={`status-pill ${account.student_approval_status}`}>{account.student_approval_status}</span><select value={account.student_approval_status} onChange={(event) => changeApproval(account.id, event.target.value)} aria-label={`Change student approval for ${account.contact}`}><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></>}<button className="book-button compact" type="button" disabled={account.id === user.id} onClick={() => changeAccountActive(account.id, !account.active)}>{account.active ? 'Turn off account' : 'Turn on account'}</button></div>
             </article>
           ))}
           {filteredAccounts.length > 0 && <div className="pagination account-pagination"><button type="button" disabled={accountPage === 1} onClick={() => setAccountPage(accountPage - 1)}>Previous</button><span>Page {accountPage} of {accountPageCount}</span><button type="button" disabled={accountPage === accountPageCount} onClick={() => setAccountPage(accountPage + 1)}>Next</button></div>}

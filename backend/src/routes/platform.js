@@ -43,7 +43,7 @@ router.get('/admin/instructor-applications', requireAuth, requireRole('admin'), 
 }));
 router.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   res.json((await pool.query(
-    `    SELECT u.id,u.display_name,u.contact,u.profile_image,u.student_approval_status,u.created_at,
+    `        SELECT u.id,u.display_name,u.contact,u.profile_image,u.student_approval_status,u.active,u.created_at,
       COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL),'{}') roles,
       ip.approval_status
      FROM users u
@@ -53,6 +53,17 @@ router.get('/admin/users', requireAuth, requireRole('admin'), asyncHandler(async
      GROUP BY u.id,ip.approval_status
      ORDER BY u.created_at DESC`,
   )).rows);
+}));
+router.patch('/admin/users/:userId/active', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
+  const userId = id.safeParse(req.params.userId);
+  const data = body(z.object({ active: z.boolean() }), req, res);
+  if (!userId.success) return res.status(400).json({ error: 'Invalid user id' });
+  if (!data) return;
+  if (userId.data === req.user.id && !data.active) return res.status(400).json({ error: 'You cannot turn off your own admin account.' });
+  const { rows } = await pool.query('UPDATE users SET active=$1 WHERE id=$2 RETURNING id,active', [data.active, userId.data]);
+  if (!rows[0]) return res.status(404).json({ error: 'Account not found.' });
+  if (!data.active) await pool.query('DELETE FROM sessions WHERE user_id=$1', [userId.data]);
+  res.json(rows[0]);
 }));
 router.patch('/admin/users/:userId/approval', requireAuth, requireRole('admin'), asyncHandler(async (req, res) => {
   const userId = id.safeParse(req.params.userId);

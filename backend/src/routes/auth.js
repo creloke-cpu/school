@@ -66,7 +66,7 @@ router.post('/request-link', asyncHandler(async (req, res) => {
 router.get('/verify', asyncHandler(async (req, res) => {
   const raw = typeof req.query.token === 'string' ? req.query.token : '';
   if (!raw) return res.status(400).send('Missing sign-in token');
-  const { rows } = await pool.query(`UPDATE auth_tokens SET used_at=NOW() WHERE token_hash=$1 AND used_at IS NULL AND expires_at>NOW() RETURNING user_id`, [hash(raw)]);
+  const { rows } = await pool.query(`UPDATE auth_tokens t SET used_at=NOW() FROM users u WHERE t.user_id=u.id AND t.token_hash=$1 AND t.used_at IS NULL AND t.expires_at>NOW() AND u.active=true RETURNING t.user_id`, [hash(raw)]);
   if (!rows[0]) return res.status(400).send('This sign-in link is invalid or expired.');
   const session = crypto.randomBytes(32).toString('hex');
   await pool.query(`INSERT INTO sessions(user_id,session_hash,expires_at) VALUES($1,$2,NOW()+INTERVAL '30 days')`, [rows[0].user_id, hash(session)]);
