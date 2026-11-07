@@ -1961,6 +1961,10 @@ input[aria-invalid='true'] {
   background: #000;
 }
 
+.login-page .header .logo {
+  color: #e50914;
+}
+
 .status-pill.approved,
 .status-pill.status-completed {
   color: #9f0b12;
