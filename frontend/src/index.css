@@ -1815,6 +1815,34 @@ input[aria-invalid='true'] {
 .account-role-control select { border: 1px solid #d5ded6; border-radius: 8px; padding: 9px 12px; color: #17211b; background: #fff; }
 .account-role-control select:disabled { opacity: .6; cursor: not-allowed; }
 .admin-accounts { margin-top: 24px; }
+.admin-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  margin-right: 24px;
+  overflow-x: auto;
+}
+
+.admin-nav button {
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 999px;
+  padding: 9px 12px;
+  color: #68728a;
+  background: transparent;
+  cursor: pointer;
+  font-size: .78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.admin-nav button:hover,
+.admin-nav button.active {
+  color: #fff;
+  background: #e50914;
+}
+
 .account-toolbar {
   display: flex;
   align-items: center;

@@ -303,6 +303,7 @@ function AdminDashboard({ contact, user, onSignOut }) {
   const [lessonTypes, setLessonTypes] = useState([]);
   const [submittedPayments, setSubmittedPayments] = useState([]);
   const [studentActivity, setStudentActivity] = useState({ summary: {}, bookings: [] });
+  const [activeSection, setActiveSection] = useState('overview');
   const [accountSearch, setAccountSearch] = useState('');
   const [accountRoleFilter, setAccountRoleFilter] = useState('all');
   const [accountApprovalFilter, setAccountApprovalFilter] = useState('all');
@@ -475,21 +476,24 @@ function AdminDashboard({ contact, user, onSignOut }) {
     <main className="dashboard-page">
       <header className="dashboard-header">
         <a className="logo" href="/" aria-label="FirstGear home">FIRSTGEAR</a>
+        <nav className="admin-nav" aria-label="Superadmin navigation">
+          {[['overview', 'Overview'], ['applications', 'Instructor applications'], ['accounts', 'Accounts'], ['lessons', 'Lesson options'], ['payments', 'Payments'], ['bookings', 'Booking requests']].map(([section, label]) => <button className={activeSection === section ? 'active' : ''} type="button" key={section} onClick={() => setActiveSection(section)}>{label}</button>)}
+        </nav>
         <div className="header-actions"><span>{contact}</span><button className="text-button" type="button" onClick={onSignOut}>Sign out</button></div>
       </header>
       <section className="dashboard-content">
         <p className="eyebrow">SUPERADMIN</p>
-        <h1>Instructor approvals</h1>
-        <p className="view-intro">Review instructor applications before they can accept student bookings.</p>
-        <div className="stats-grid"><div><strong>{pending.length}</strong><span>Pending review</span></div><div><strong>{applications.filter((application) => application.approval_status === 'approved').length}</strong><span>Approved instructors</span></div><div><strong>{applications.length}</strong><span>Total applications</span></div></div>
-        <section className="dashboard-panel admin-applications">
+        <h1>{activeSection === 'overview' ? 'Management overview' : activeSection === 'applications' ? 'Instructor applications' : activeSection === 'accounts' ? 'Account management' : activeSection === 'lessons' ? 'Lesson options' : activeSection === 'payments' ? 'Payment review' : 'Booking requests'}</h1>
+        <p className="view-intro">{activeSection === 'overview' ? 'Monitor student activity, bookings, and management fees.' : 'Use the navigation above to manage this area of FirstGear.'}</p>
+        {activeSection === 'overview' && <div className="stats-grid"><div><strong>{pending.length}</strong><span>Pending review</span></div><div><strong>{applications.filter((application) => application.approval_status === 'approved').length}</strong><span>Approved instructors</span></div><div><strong>{applications.length}</strong><span>Total applications</span></div></div>}
+        {activeSection === 'overview' && <section className="dashboard-panel admin-applications">
           <div className="panel-heading"><div><p className="eyebrow">STUDENT ACTIVITY</p><h2>Booking and fee overview</h2></div><button className="text-button" type="button" onClick={loadStudentActivity}>Refresh</button></div>
           <div className="stats-grid activity-stats"><div><strong>{studentActivity.summary.active_students || 0}</strong><span>Active students</span></div><div><strong>{studentActivity.summary.total_bookings || 0}</strong><span>Total bookings</span></div><div><strong>{studentActivity.summary.unconfirmed_bookings || 0}</strong><span>Unconfirmed</span></div><div><strong>{studentActivity.summary.confirmed_bookings || 0}</strong><span>Confirmed</span></div><div><strong>{studentActivity.summary.instructor_taken_bookings || 0}</strong><span>Taken by instructor</span></div><div><strong>£{((studentActivity.summary.management_fees_cents || 0) / 100).toFixed(2)}</strong><span>Paid management fees</span></div></div>
           <p className="muted">Each new student booking includes a £1.00 management fee in the payment total. This is recorded here for reconciliation.</p>
           <div className="activity-table"><div className="activity-table-head"><span>Student</span><span>Lesson</span><span>Instructor</span><span>Booking</span><span>Payment</span><span>Fee</span></div>{studentActivity.bookings.length ? studentActivity.bookings.map((booking) => <div className="activity-table-row" key={booking.id}><span><strong>{booking.student_name}</strong><small>{booking.student_contact}</small></span><span>{booking.lesson_type}<small>{new Date(booking.starts_at).toLocaleString()}</small></span><span>{booking.instructor_name || 'Not taken'}</span><span className={`status-pill status-${booking.status}`}>{booking.status}</span><span className={`status-pill status-${booking.payment_status || 'pending'}`}>{booking.payment_status || 'pending'}</span><span>£{((booking.management_fee_cents || 0) / 100).toFixed(2)}</span></div>) : <p className="muted">No student bookings yet.</p>}</div>
-        </section>
+        </section>}
         {error && <p className="form-error" role="alert">{error}</p>}
-        <section className="dashboard-panel admin-applications">
+        {activeSection === 'applications' && <section className="dashboard-panel admin-applications">
           <div className="panel-heading"><div><p className="eyebrow">APPLICATIONS</p><h2>Instructor applications</h2></div><button className="text-button" type="button" onClick={loadApplications}>Refresh</button></div>
           {loading ? <p className="muted">Loading applications...</p> : applications.length === 0 ? <p className="muted">No instructor applications yet.</p> : applications.map((application) => (
             <article className="application-row" key={application.id}>
@@ -497,8 +501,8 @@ function AdminDashboard({ contact, user, onSignOut }) {
               <div className="application-status"><span className={`status-pill ${application.approval_status}`}>{application.approval_status}</span>{application.approval_status === 'pending' && <div><button className="book-button compact" type="button" onClick={() => decide(application.id, 'approved')}>Approve</button><button className="text-button" type="button" onClick={() => decide(application.id, 'rejected')}>Reject</button></div>}</div>
             </article>
           ))}
-        </section>
-        <section className="dashboard-panel admin-applications admin-accounts">
+        </section>}
+        {activeSection === 'accounts' && <section className="dashboard-panel admin-applications admin-accounts">
           <div className="panel-heading"><div><p className="eyebrow">ACCOUNT MANAGEMENT</p><h2>Upgrade or downgrade accounts</h2></div><button className="text-button" type="button" onClick={loadAccounts}>Refresh</button></div>
           <div className="account-toolbar">
             <label className="search-field" htmlFor="account-search"><span>⌕</span><input id="account-search" type="search" placeholder="Search name or email" value={accountSearch} onChange={(event) => { setAccountSearch(event.target.value); setAccountPage(1); }} /></label>
@@ -513,8 +517,8 @@ function AdminDashboard({ contact, user, onSignOut }) {
             </article>
           ))}
           {filteredAccounts.length > 0 && <div className="pagination account-pagination"><button type="button" disabled={accountPage === 1} onClick={() => setAccountPage(accountPage - 1)}>Previous</button><span>Page {accountPage} of {accountPageCount}</span><button type="button" disabled={accountPage === accountPageCount} onClick={() => setAccountPage(accountPage + 1)}>Next</button></div>}
-        </section>
-        <section className="dashboard-panel admin-applications">
+        </section>}
+        {activeSection === 'lessons' && <section className="dashboard-panel admin-applications">
           <div className="panel-heading"><div><p className="eyebrow">LESSON OPTIONS</p><h2>Manage lesson prices</h2></div><button className="text-button" type="button" onClick={loadLessonTypes}>Refresh</button></div>
           <p className="muted">These options appear in student booking. The default extended lesson is 2 hours for £90.</p>
           <form className="profile-form" onSubmit={createLessonType}>
@@ -529,12 +533,12 @@ function AdminDashboard({ contact, user, onSignOut }) {
             <div className="lesson-type-editor"><input aria-label="Lesson name" value={lessonType.name} onChange={(event) => setLessonTypes((current) => current.map((item) => item.id === lessonType.id ? { ...item, name: event.target.value } : item))} /><div><label>Minutes <input type="number" min="1" value={lessonType.duration_minutes} onChange={(event) => setLessonTypes((current) => current.map((item) => item.id === lessonType.id ? { ...item, duration_minutes: Number(event.target.value) } : item))} /></label><label>Price £ <input type="number" min="0" step="0.01" value={(lessonType.price_cents / 100).toFixed(2)} onChange={(event) => setLessonTypes((current) => current.map((item) => item.id === lessonType.id ? { ...item, price_cents: Math.round(Number(event.target.value) * 100) } : item))} /></label></div></div>
             <div className="account-role-control"><span className={`status-pill ${lessonType.active ? 'approved' : 'rejected'}`}>{lessonType.active ? 'Active' : 'Hidden'}</span><button className="book-button compact" type="button" onClick={() => updateLessonType(lessonType)}>Save</button><button className="text-button" type="button" onClick={() => updateLessonType({ ...lessonType, active: !lessonType.active })}>{lessonType.active ? 'Hide' : 'Enable'}</button></div>
           </div>)}
-        </section>
-        <section className="dashboard-panel admin-applications">
+        </section>}
+        {activeSection === 'payments' && <section className="dashboard-panel admin-applications">
           <div className="panel-heading"><div><p className="eyebrow">PAYMENT REVIEW</p><h2>Submitted bank references</h2></div><button className="text-button" type="button" onClick={loadSubmittedPayments}>Refresh</button></div>
           {submittedPayments.length ? submittedPayments.map((payment) => <div className="application-row" key={payment.id}><div><strong>{payment.student_name}</strong><span>{payment.lesson_type} · £{(payment.amount_cents / 100).toFixed(2)}</span><small>Reference: {payment.provider_reference}</small></div><button className="book-button compact" type="button" onClick={() => approvePayment(payment.id)}>Approve payment</button></div>) : <p className="muted">No submitted payments need review.</p>}
-        </section>
-        <section className="dashboard-panel admin-applications admin-accounts">
+        </section>}
+        {activeSection === 'bookings' && <section className="dashboard-panel admin-applications admin-accounts">
           <div className="panel-heading"><div><p className="eyebrow">BOOKING REQUESTS</p><h2>Unassigned student bookings</h2></div><button className="text-button" type="button" onClick={() => Promise.all([loadUnassignedBookings(), loadApprovedInstructors()])}>Refresh</button></div>
           <p className="muted">Only approved instructors are available for assignment. Superadmin accounts are not assignable.</p>
           {unassignedBookings.length === 0 ? <p className="muted">No unassigned booking requests.</p> : unassignedBookings.map((booking) => (
@@ -543,7 +547,7 @@ function AdminDashboard({ contact, user, onSignOut }) {
               <div className="booking-assignment-control"><select disabled={booking.student_is_instructor} defaultValue="" aria-label={`Choose instructor for ${booking.student_name}`}><option value="" disabled>Choose instructor</option>{approvedInstructors.map((instructor) => <option key={instructor.id} value={instructor.id}>{instructor.display_name}</option>)}</select><button className="book-button compact" type="button" disabled={booking.student_is_instructor} onClick={(event) => assignBooking(booking.id, event.currentTarget.previousElementSibling.value)}>Assign to instructor</button></div>
             </article>
           ))}
-        </section>
+        </section>}
       </section>
       <PortalFooter />
     </main>
