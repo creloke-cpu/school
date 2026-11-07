@@ -516,9 +516,9 @@ function AdminDashboard({ contact, user, onSignOut }) {
           <div className="panel-heading"><div><p className="eyebrow">BOOKING REQUESTS</p><h2>Unassigned student bookings</h2></div><button className="text-button" type="button" onClick={() => Promise.all([loadUnassignedBookings(), loadApprovedInstructors()])}>Refresh</button></div>
           <p className="muted">Only approved instructors are available for assignment. Superadmin accounts are not assignable.</p>
           {unassignedBookings.length === 0 ? <p className="muted">No unassigned booking requests.</p> : unassignedBookings.map((booking) => (
-            <article className="application-row" key={booking.id}>
-              <div><strong>{booking.student_name}</strong><span>{booking.student_contact}</span><small>{booking.lesson_type} · {new Date(booking.starts_at).toLocaleString()}</small></div>
-              <div className="booking-assignment-control"><select defaultValue="" aria-label={`Choose instructor for ${booking.student_name}`}><option value="" disabled>Choose instructor</option>{approvedInstructors.map((instructor) => <option key={instructor.id} value={instructor.id}>{instructor.display_name}</option>)}</select><button className="book-button compact" type="button" onClick={(event) => assignBooking(booking.id, event.currentTarget.previousElementSibling.value)}>Assign to instructor</button></div>
+            <article className={`application-row${booking.student_is_instructor ? ' booking-student-instructor' : ''}`} key={booking.id}>
+              <div><strong>{booking.student_name}</strong><span>{booking.student_contact}</span><small>{booking.lesson_type} · {new Date(booking.starts_at).toLocaleString()}</small>{booking.student_is_instructor && <p className="booking-alert" role="alert">This student is now an instructor and cannot be assigned to an instructor.</p>}</div>
+              <div className="booking-assignment-control"><select disabled={booking.student_is_instructor} defaultValue="" aria-label={`Choose instructor for ${booking.student_name}`}><option value="" disabled>Choose instructor</option>{approvedInstructors.map((instructor) => <option key={instructor.id} value={instructor.id}>{instructor.display_name}</option>)}</select><button className="book-button compact" type="button" disabled={booking.student_is_instructor} onClick={(event) => assignBooking(booking.id, event.currentTarget.previousElementSibling.value)}>Assign to instructor</button></div>
             </article>
           ))}
         </section>
