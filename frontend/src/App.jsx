@@ -304,6 +304,8 @@ function AdminDashboard({ contact, user, onSignOut }) {
   const [submittedPayments, setSubmittedPayments] = useState([]);
   const [studentActivity, setStudentActivity] = useState({ summary: {}, bookings: [] });
   const [activeSection, setActiveSection] = useState('overview');
+  const [adminMenuOpen, setAdminMenuOpen] = useState(false);
+  const adminMenuRef = useRef(null);
   const [accountSearch, setAccountSearch] = useState('');
   const [accountRoleFilter, setAccountRoleFilter] = useState('all');
   const [accountApprovalFilter, setAccountApprovalFilter] = useState('all');
@@ -363,6 +365,13 @@ function AdminDashboard({ contact, user, onSignOut }) {
   };
   useEffect(() => {
     Promise.all([loadApplications(), loadAccounts(), loadUnassignedBookings(), loadApprovedInstructors(), loadLessonTypes(), loadSubmittedPayments(), loadStudentActivity()]).catch((requestError) => setError(requestError.message));
+  }, []);
+  useEffect(() => {
+    const closeMenu = (event) => {
+      if (adminMenuRef.current && !adminMenuRef.current.contains(event.target)) setAdminMenuOpen(false);
+    };
+    document.addEventListener('mousedown', closeMenu);
+    return () => document.removeEventListener('mousedown', closeMenu);
   }, []);
   const decide = async (id, approval_status) => {
     setError('');
@@ -479,7 +488,12 @@ function AdminDashboard({ contact, user, onSignOut }) {
         <nav className="admin-nav" aria-label="Superadmin navigation">
           {[['overview', 'Overview'], ['applications', 'Instructor applications'], ['accounts', 'Accounts'], ['lessons', 'Lesson options'], ['payments', 'Payments'], ['bookings', 'Booking requests']].map(([section, label]) => <button className={activeSection === section ? 'active' : ''} type="button" key={section} onClick={() => setActiveSection(section)}>{label}</button>)}
         </nav>
-        <div className="header-actions"><span>{contact}</span><button className="text-button" type="button" onClick={onSignOut}>Sign out</button></div>
+        <div className="profile-actions admin-profile-actions" ref={adminMenuRef}>
+          <button className="user-menu-button" type="button" aria-label="Open superadmin profile menu" aria-expanded={adminMenuOpen} onClick={() => setAdminMenuOpen(!adminMenuOpen)}>
+            <span className="user-avatar">A</span><span className="burger-icon"><i /><i /><i /></span>
+          </button>
+          {adminMenuOpen && <div className="user-menu"><strong>Superadmin</strong><span>{contact}</span><button type="button" onClick={() => setAdminMenuOpen(false)}>Profile</button><button type="button" onClick={onSignOut}>Sign out</button></div>}
+        </div>
       </header>
       <section className="dashboard-content">
         <p className="eyebrow">SUPERADMIN</p>
