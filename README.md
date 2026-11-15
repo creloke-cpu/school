@@ -73,6 +73,16 @@ hidden from student bookings until approved by an administrator. The
 superadmin account is `steveotien8@gmail.com`; sign in through the normal
 FirstGear login page.
 
+## Install FirstGear on Android
+
+FirstGear is an installable web app and uses the existing hosted service, so no
+separate Android build or Play Store download is required. Deploy the site over
+HTTPS, open its URL in Chrome on Android, sign in, then choose **Install app**
+from Chrome's menu (or tap the install prompt when Chrome offers it). The app
+needs an internet connection to use bookings, payments, and account features.
+The service worker may keep the app shell available offline, but it never caches
+API responses or account data.
+
 ---
 
 ## 🚂 Deploy to Railway (Step-by-Step)
