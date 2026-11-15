@@ -83,6 +83,12 @@ needs an internet connection to use bookings, payments, and account features.
 The service worker may keep the app shell available offline, but it never caches
 API responses or account data.
 
+For the Google Play TWA package, `/.well-known/assetlinks.json` associates the
+site with `com.firstgear.drivingschool`. If Google Play App Signing is enabled,
+add the Play Console app-signing certificate fingerprint to this file after
+the first upload, then redeploy the website so Play-distributed installs verify
+the domain.
+
 ---
 
 ## 🚂 Deploy to Railway (Step-by-Step)

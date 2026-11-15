@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.firstgear.drivingschool",
+      "sha256_cert_fingerprints": [
+        "8E:FC:11:AD:79:21:E7:67:40:48:5B:0B:52:97:06:CE:A4:16:05:5B:70:70:7D:C2:4E:A3:F0:E7:A0:2B:A0:0A"
+      ]
+    }
+  }
+]
