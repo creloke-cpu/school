@@ -289,23 +289,26 @@ export default function App() {
 }
 
 function LandingPage({ onSignIn }) {
-  const [refreshCount, setRefreshCount] = useState(0);
+  const [previewTotals, setPreviewTotals] = useState({ paidToDate: 135, lessons: 3 });
 
   useEffect(() => {
     const navigationId = String(performance.timeOrigin);
     const lastCountedNavigation = sessionStorage.getItem('firstgear-counted-navigation');
-    let count = Number(localStorage.getItem('firstgear-page-refresh-count')) || 0;
+    let paidToDate = Number(localStorage.getItem('firstgear-preview-paid-to-date')) || 135;
+    let lessons = Number(localStorage.getItem('firstgear-preview-lesson-count')) || 3;
 
     if (
       performance.getEntriesByType('navigation')[0]?.type === 'reload'
       && lastCountedNavigation !== navigationId
     ) {
-      count += 1;
-      localStorage.setItem('firstgear-page-refresh-count', String(count));
+      paidToDate += 45;
+      lessons += 1;
+      localStorage.setItem('firstgear-preview-paid-to-date', String(paidToDate));
+      localStorage.setItem('firstgear-preview-lesson-count', String(lessons));
     }
 
     sessionStorage.setItem('firstgear-counted-navigation', navigationId);
-    setRefreshCount(count);
+    setPreviewTotals({ paidToDate, lessons });
   }, []);
 
   return (
@@ -347,7 +350,7 @@ function LandingPage({ onSignIn }) {
         <div className="app-screenshot" aria-label="Preview of the FirstGear student dashboard">
           <div className="screenshot-top"><span className="mini-logo">FIRSTGEAR</span><span className="avatar-dot">S</span></div>
           <div className="screenshot-greeting"><small>YOUR NEXT LESSON</small><strong>Behind-the-wheel</strong><span>Thursday · 10:00 · 60 minutes</span></div>
-          <div className="screenshot-grid"><div><small>PROGRESS</small><strong>68%</strong><span className="progress-bar"><i /></span></div><div><small>PAGE REFRESHES</small><strong>{refreshCount}</strong><span>This browser</span></div></div>
+          <div className="screenshot-grid"><div><small>PROGRESS</small><strong>68%</strong><span className="progress-bar"><i /></span></div><div><small>PAID TO DATE</small><strong>£{previewTotals.paidToDate}</strong><span>{previewTotals.lessons} lessons</span></div></div>
           <div className="screenshot-row"><CalendarDays size={17} /><span>View your full schedule</span><b>›</b></div>
         </div>
       </section>
