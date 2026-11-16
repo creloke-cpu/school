@@ -5,7 +5,7 @@ import './index.css';
 const API_BASE = import.meta.env.VITE_API_URL || '';
 const PREVIEW_COUNTER_START = Date.UTC(2026, 10, 16, 18, 11);
 const PREVIEW_COUNTER_HOUR = 60 * 60 * 1000;
-const PREVIEW_COUNTER_BASE_LESSONS = 8950;
+const PREVIEW_COUNTER_BASE_LESSONS = 895;
 const PREVIEW_COUNTER_LESSONS_PER_HOUR = 5;
 const PREVIEW_LESSON_PRICE = 45;
 const getPreviewTotals = () => {
