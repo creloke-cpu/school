@@ -3,6 +3,19 @@ import { Activity, BookOpen, CalendarDays, CarFront, CheckCircle2, Clock3, Gauge
 import './index.css';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
+const PREVIEW_COUNTER_START = Date.UTC(2026, 10, 16, 18, 11);
+const PREVIEW_COUNTER_HOUR = 60 * 60 * 1000;
+const PREVIEW_COUNTER_BASE_LESSONS = 8950;
+const PREVIEW_COUNTER_LESSONS_PER_HOUR = 5;
+const PREVIEW_LESSON_PRICE = 45;
+const getPreviewTotals = () => {
+  const hoursElapsed = Math.max(
+    0,
+    Math.floor((Date.now() - PREVIEW_COUNTER_START) / PREVIEW_COUNTER_HOUR),
+  );
+  const lessons = PREVIEW_COUNTER_BASE_LESSONS + hoursElapsed * PREVIEW_COUNTER_LESSONS_PER_HOUR;
+  return { lessons, paidToDate: lessons * PREVIEW_LESSON_PRICE };
+};
 const isPlaceholderName = (name) => !name || ['student', 'instructor'].includes(name.trim().toLowerCase());
 const displayIdentity = (name, contact) => isPlaceholderName(name) ? contact : name;
 
@@ -289,26 +302,25 @@ export default function App() {
 }
 
 function LandingPage({ onSignIn }) {
-  const [previewTotals, setPreviewTotals] = useState({ paidToDate: 135, lessons: 3 });
+  const [previewTotals, setPreviewTotals] = useState(getPreviewTotals);
 
   useEffect(() => {
-    const navigationId = String(performance.timeOrigin);
-    const lastCountedNavigation = sessionStorage.getItem('firstgear-counted-navigation');
-    let paidToDate = Number(localStorage.getItem('firstgear-preview-paid-to-date')) || 135;
-    let lessons = Number(localStorage.getItem('firstgear-preview-lesson-count')) || 3;
+    const updateTotals = () => setPreviewTotals(getPreviewTotals());
+    const hoursElapsed = Math.max(
+      0,
+      Math.floor((Date.now() - PREVIEW_COUNTER_START) / PREVIEW_COUNTER_HOUR),
+    );
+    const nextUpdateAt = PREVIEW_COUNTER_START + (hoursElapsed + 1) * PREVIEW_COUNTER_HOUR;
+    let intervalId;
+    const timeoutId = window.setTimeout(() => {
+      updateTotals();
+      intervalId = window.setInterval(updateTotals, PREVIEW_COUNTER_HOUR);
+    }, Math.max(0, nextUpdateAt - Date.now()));
 
-    if (
-      performance.getEntriesByType('navigation')[0]?.type === 'reload'
-      && lastCountedNavigation !== navigationId
-    ) {
-      paidToDate += 45;
-      lessons += 1;
-      localStorage.setItem('firstgear-preview-paid-to-date', String(paidToDate));
-      localStorage.setItem('firstgear-preview-lesson-count', String(lessons));
-    }
-
-    sessionStorage.setItem('firstgear-counted-navigation', navigationId);
-    setPreviewTotals({ paidToDate, lessons });
+    return () => {
+      window.clearTimeout(timeoutId);
+      if (intervalId) window.clearInterval(intervalId);
+    };
   }, []);
 
   return (
@@ -350,7 +362,7 @@ function LandingPage({ onSignIn }) {
         <div className="app-screenshot" aria-label="Preview of the FirstGear student dashboard">
           <div className="screenshot-top"><span className="mini-logo">FIRSTGEAR</span><span className="avatar-dot">S</span></div>
           <div className="screenshot-greeting"><small>YOUR NEXT LESSON</small><strong>Behind-the-wheel</strong><span>Thursday · 10:00 · 60 minutes</span></div>
-          <div className="screenshot-grid"><div><small>PROGRESS</small><strong>68%</strong><span className="progress-bar"><i /></span></div><div><small>PAID TO DATE</small><strong>£{previewTotals.paidToDate}</strong><span>{previewTotals.lessons} lessons</span></div></div>
+          <div className="screenshot-grid"><div><small>PROGRESS</small><strong>68%</strong><span className="progress-bar"><i /></span></div><div><small>PAID TO DATE</small><strong>£{previewTotals.paidToDate.toLocaleString('en-GB')}</strong><span>{previewTotals.lessons.toLocaleString('en-GB')} lessons</span></div></div>
           <div className="screenshot-row"><CalendarDays size={17} /><span>View your full schedule</span><b>›</b></div>
         </div>
       </section>
