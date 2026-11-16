@@ -66,6 +66,11 @@ export default function App() {
     setAuthError('');
     fetch(`${API_BASE}/api/auth/me`, { credentials: 'include', signal: controller.signal })
       .then((response) => {
+        if (response.status === 401) {
+          setUser(null);
+          setDashboard(false);
+          return null;
+        }
         if (!response.ok) throw new Error('Unable to check your sign-in status.');
         return response.json();
       })
