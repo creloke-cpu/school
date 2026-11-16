@@ -289,6 +289,25 @@ export default function App() {
 }
 
 function LandingPage({ onSignIn }) {
+  const [refreshCount, setRefreshCount] = useState(0);
+
+  useEffect(() => {
+    const navigationId = String(performance.timeOrigin);
+    const lastCountedNavigation = sessionStorage.getItem('firstgear-counted-navigation');
+    let count = Number(localStorage.getItem('firstgear-page-refresh-count')) || 0;
+
+    if (
+      performance.getEntriesByType('navigation')[0]?.type === 'reload'
+      && lastCountedNavigation !== navigationId
+    ) {
+      count += 1;
+      localStorage.setItem('firstgear-page-refresh-count', String(count));
+    }
+
+    sessionStorage.setItem('firstgear-counted-navigation', navigationId);
+    setRefreshCount(count);
+  }, []);
+
   return (
     <main className="landing-page">
       <header className="landing-header">
@@ -328,7 +347,7 @@ function LandingPage({ onSignIn }) {
         <div className="app-screenshot" aria-label="Preview of the FirstGear student dashboard">
           <div className="screenshot-top"><span className="mini-logo">FIRSTGEAR</span><span className="avatar-dot">S</span></div>
           <div className="screenshot-greeting"><small>YOUR NEXT LESSON</small><strong>Behind-the-wheel</strong><span>Thursday · 10:00 · 60 minutes</span></div>
-          <div className="screenshot-grid"><div><small>PROGRESS</small><strong>68%</strong><span className="progress-bar"><i /></span></div><div><small>PAID TO DATE</small><strong>£135</strong><span>3 lessons</span></div></div>
+          <div className="screenshot-grid"><div><small>PROGRESS</small><strong>68%</strong><span className="progress-bar"><i /></span></div><div><small>PAGE REFRESHES</small><strong>{refreshCount}</strong><span>This browser</span></div></div>
           <div className="screenshot-row"><CalendarDays size={17} /><span>View your full schedule</span><b>›</b></div>
         </div>
       </section>
