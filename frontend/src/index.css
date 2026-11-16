@@ -2470,8 +2470,8 @@ input[aria-invalid='true'] {
 .landing-page,
 .login-page,
 .offline-app {
-  color: #fff;
-  background: #000;
+  color: #171717;
+  background: #f5f7fb;
 }
 
 .dashboard-header,
@@ -2482,26 +2482,26 @@ input[aria-invalid='true'] {
 .login-page .header,
 .login-page .login-card,
 .app-screenshot {
-  color: #fff;
-  background: #111;
-  border-color: #292929;
+  color: #17213a;
+  background: #fff;
+  border-color: #e5e9f2;
 }
 
 .dashboard-page :is(h1, h2, h3, strong, .history-row, .lesson-details strong, .bank-details dd, .payment-reference-form label, .booking-form h2, .booking-option > strong, .availability-hours strong),
 .landing-page :is(h1, h2, h3, strong),
 .login-page h1 {
-  color: #fff;
+  color: #17213a;
 }
 
 .dashboard-page :is(.action-message, .notification-strip, .booking-dialog, .apple-pay-info, .booking-form) {
-  border-color: #5a292f;
-  color: #fff;
-  background: #171011;
+  border-color: #ffd1d1;
+  color: #602127;
+  background: #fff1f1;
 }
 
 .dashboard-page :is(.stat-icon, .profile-picture-preview, .avatar, .student-avatar-small, .large-avatar) {
   color: #e50914;
-  background: #2b1113;
+  background: #fff1f1;
 }
 
 .dashboard-page :is(.lesson-date, .progress-value, .calendar-controls button, .calendar-lesson, .schedule-filters button.active, .floating-nav button.active, .student-row-info strong, .pagination button, .activity-date, .account-links button:hover),
@@ -2518,7 +2518,7 @@ input[aria-invalid='true'] {
 }
 
 .dashboard-page :is(.status-pill, .status-pending, .status-completed) {
-  background: #2b1113;
+  background: #ffe0e0;
 }
 
 .dashboard-page :is(.calendar-day.today .calendar-date, .notification-bell, .large-avatar, .progress-track span) {
@@ -2527,7 +2527,7 @@ input[aria-invalid='true'] {
 }
 
 .dashboard-page :is(.calendar-lesson, .schedule-filters button.active, .floating-nav button.active, .account-links button:hover, .bottom-nav button.active) {
-  background: #2b1113;
+  background: #fff1f1;
 }
 
 .dashboard-page :is(.calendar-lesson, .schedule-filters button.active, .calendar-day.today .calendar-date) {
@@ -2537,13 +2537,13 @@ input[aria-invalid='true'] {
 .dashboard-page .progress-track,
 .dashboard-page .calendar-day.empty,
 .dashboard-page .availability-hours span {
-  background: #292929;
+  background: #eceef5;
 }
 
 .dashboard-page :is(input, select, textarea) {
-  border-color: #444;
-  color: #fff;
-  background: #222;
+  border-color: #d5d9e5;
+  color: #17213a;
+  background: #fff;
 }
 
 .dashboard-page :is(.welcome p:not(.eyebrow), .lesson-details p, .muted, .view-intro, .profile-detail p, .bank-details dt, .history-date, .history-instructor, .stat-card span:not(.stat-icon), .user-menu span, .calendar-weekdays, .calendar-date, .profile-form label, .search-field, .student-row-info small, .blocked-row, .notification-strip p),
@@ -2554,21 +2554,21 @@ input[aria-invalid='true'] {
 
 .landing-hero,
 .landing-info {
-  color: #fff;
-  background: linear-gradient(120deg, #000 45%, #1a080a 45%);
+  color: #171717;
+  background: linear-gradient(120deg, #f7f7f7 45%, #f5d9d9 45%);
 }
 
 .landing-stats {
-  background: #292929;
+  background: #e8ebf2;
 }
 
 .landing-stats article,
 .landing-cards article {
-  border-color: #292929;
+  border-color: #e5e9f2;
 }
 
 .landing-cards p {
-  color: #b3b3b3;
+  color: #536078;
 }
 
 .landing-price-card,
@@ -2584,7 +2584,7 @@ input[aria-invalid='true'] {
 .landing-price-card small,
 .preview-copy > p:not(.eyebrow),
 .preview-checks {
-  color: #b3b3b3;
+  color: #d0d0d0;
 }
 
 .road-lines {
@@ -2607,7 +2607,7 @@ input[aria-invalid='true'] {
 
 .landing-signin,
 .login-page .login-card {
-  border-color: #292929;
+  border-color: #e5e9f2;
 }
 
 .landing-signin {
@@ -2616,39 +2616,100 @@ input[aria-invalid='true'] {
 }
 
 .login-page .login-card {
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 24px 70px rgba(16, 32, 25, 0.1);
 }
 
 .app-screenshot {
-  border-color: #333;
+  border-color: #e5e9f2;
 }
 
 .screenshot-greeting,
 .avatar-dot,
 .feature-icon {
-  border-color: #5a292f;
+  border-color: #ffd1d1;
   color: #e50914;
-  background: #171011;
+  background: #fff1f1;
 }
 
 .screenshot-row {
-  border-color: #292929;
-  color: #b3b3b3;
+  border-color: #e5e9f2;
+  color: #536078;
 }
 
 .login-page input {
-  border-color: #555;
-  color: #fff;
-  background: #222;
+  border-color: #8c8c8c;
+  color: #17213a;
+  background: #fff;
 }
 
 .offline-alert {
-  border-color: #5a292f;
-  background: #171011;
+  border-color: #ffd1d1;
+  background: #fff1f1;
 }
 
 .dashboard-page .bottom-nav button.active,
 .dashboard-page .bottom-nav button:hover {
   color: #e50914;
-  background: #2b1113;
+  background: #fff1f1;
+}
+
+.offline-header,
+.offline-menu,
+.offline-bottom-menu {
+  color: #17213a;
+  background: #fff;
+  border-color: #e8ebf2;
+}
+
+.offline-heading h1 {
+  color: #17213a;
+}
+
+.offline-heading > p:last-child,
+.offline-status,
+.offline-menu button,
+.offline-bottom-menu button,
+.offline-alert p {
+  color: #68728a;
+}
+
+.offline-alert {
+  color: #602127;
+}
+
+.offline-alert-icon,
+.offline-alert button {
+  background: #e50914;
+}
+
+.offline-wireframe {
+  border-color: #e7eaf1;
+  background: #fff;
+}
+
+.offline-wireframe-banner,
+.offline-wireframe-card,
+.offline-wireframe-row {
+  border-color: #edf0f5;
+  background: #fbfcfe;
+}
+
+.wireframe-line,
+.wireframe-dot {
+  background: #e8ebf2;
+}
+
+.wireframe-block {
+  background: #fff1f1;
+}
+
+.wireframe-value {
+  background: #e50914;
+}
+
+.offline-menu button.active,
+.offline-menu button:hover,
+.offline-bottom-menu button.active {
+  color: #e50914;
+  background: #fff1f1;
 }
