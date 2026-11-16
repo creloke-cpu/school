@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { CalendarDays, CarFront, CheckCircle2, Clock3, Gauge, MapPin, ShieldCheck } from 'lucide-react';
+import { Activity, BookOpen, CalendarDays, CarFront, CheckCircle2, Clock3, Gauge, Home, MapPin, Plus, ShieldCheck, TrendingUp, UserRound, UsersRound } from 'lucide-react';
 import './index.css';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -31,11 +31,44 @@ export default function App() {
   const [authError, setAuthError] = useState('');
   const [devLink, setDevLink] = useState('');
   const [showLogin, setShowLogin] = useState(false);
+  const [isOnline, setIsOnline] = useState(() => window.navigator.onLine);
+  const [connectionAttempt, setConnectionAttempt] = useState(0);
   const contactInputRef = useRef(null);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/auth/me`, { credentials: 'include' })
-      .then((response) => (response.ok ? response.json() : null))
+    const handleOnline = () => {
+      setIsOnline(true);
+      setConnectionAttempt((attempt) => attempt + 1);
+    };
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isOnline) {
+      setAuthLoading(false);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    let timedOut = false;
+    const timeoutId = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, 10000);
+
+    setAuthLoading(true);
+    setAuthError('');
+    fetch(`${API_BASE}/api/auth/me`, { credentials: 'include', signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error('Unable to check your sign-in status.');
+        return response.json();
+      })
       .then((result) => {
         if (result?.user) {
           setUser(result.user);
@@ -43,9 +76,23 @@ export default function App() {
           setDashboard(true);
         }
       })
-      .catch(() => setAuthError('We could not check your sign-in status.'))
-      .finally(() => setAuthLoading(false));
-  }, []);
+      .catch(() => {
+        if (timedOut) {
+          setAuthError('FirstGear is taking too long to respond. Check your internet connection and try again.');
+        } else if (!controller.signal.aborted) {
+          setAuthError('We could not reach FirstGear. Check your internet connection and try again.');
+        }
+      })
+      .finally(() => {
+        window.clearTimeout(timeoutId);
+        if (!controller.signal.aborted || timedOut) setAuthLoading(false);
+      });
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [isOnline, connectionAttempt]);
 
   const continueSignIn = (event) => {
     event.preventDefault();
@@ -96,8 +143,13 @@ export default function App() {
     setReviewStep(false);
   };
 
-  if (authLoading && !user) {
-    return <main className="page"><p className="loading-message">Loading FirstGear...</p></main>;
+  if (!isOnline || (authError && !user)) {
+    return (
+      <OfflineAppPage
+        isOnline={isOnline}
+        onRetry={() => setConnectionAttempt((attempt) => attempt + 1)}
+      />
+    );
   }
 
   if (dashboard) {
@@ -293,6 +345,99 @@ function LandingPage({ onSignIn }) {
           ))}
         </nav>
       </footer>
+    </main>
+  );
+}
+
+function OfflineAppPage({ isOnline, onRetry }) {
+  const [activeSection, setActiveSection] = useState('home');
+  const sections = [
+    { id: 'home', label: 'Home', title: 'Your driving dashboard', icon: Home },
+    { id: 'lessons', label: 'Lessons', title: 'Your lessons', icon: BookOpen },
+    { id: 'progress', label: 'Progress', title: 'Your progress', icon: TrendingUp },
+    { id: 'account', label: 'Account', title: 'Your account', icon: UserRound },
+  ];
+  const currentSection = sections.find((section) => section.id === activeSection);
+
+  return (
+    <main className="offline-app">
+      <header className="offline-header">
+        <a className="logo" href="/" aria-label="FirstGear home">FIRSTGEAR</a>
+        <span className="offline-status"><i aria-hidden="true" /> App mode</span>
+      </header>
+      <nav className="offline-menu" aria-label="Main navigation">
+        {sections.map((section) => (
+          <button
+            className={activeSection === section.id ? 'active' : ''}
+            type="button"
+            key={section.id}
+            onClick={() => setActiveSection(section.id)}
+          >
+            {section.label}
+          </button>
+        ))}
+      </nav>
+      <section className="offline-content" aria-live="polite">
+        <div className="offline-alert" role="status">
+          <span className="offline-alert-icon" aria-hidden="true">!</span>
+          <div>
+            <strong>{isOnline ? 'FirstGear is temporarily unavailable' : "You're offline"}</strong>
+            <p>
+              {isOnline
+                ? 'Check your internet connection and try again.'
+                : 'Connect to the internet to sign in and load your latest information.'}
+            </p>
+          </div>
+          <button type="button" onClick={onRetry}>Try again</button>
+        </div>
+        <div className="offline-heading">
+          <p className="eyebrow">FIRSTGEAR APP</p>
+          <h1>{currentSection.title}</h1>
+          <p>Your app menu is ready. Your account information will appear when you reconnect.</p>
+        </div>
+        <div className="offline-wireframe" aria-label={`${currentSection.label} screen preview`}>
+          <div className="offline-wireframe-banner">
+            <span className="wireframe-line wireframe-line-short" />
+            <span className="wireframe-line wireframe-line-long" />
+            <span className="wireframe-block" />
+          </div>
+          <div className="offline-wireframe-grid">
+            <div className="offline-wireframe-card">
+              <span className="wireframe-line wireframe-line-short" />
+              <span className="wireframe-value" />
+              <span className="wireframe-line" />
+            </div>
+            <div className="offline-wireframe-card">
+              <span className="wireframe-line wireframe-line-short" />
+              <span className="wireframe-value" />
+              <span className="wireframe-line" />
+            </div>
+          </div>
+          <div className="offline-wireframe-row">
+            <span className="wireframe-dot" />
+            <span className="wireframe-line wireframe-line-long" />
+            <span className="wireframe-line wireframe-line-short" />
+          </div>
+          <div className="offline-wireframe-row">
+            <span className="wireframe-dot" />
+            <span className="wireframe-line wireframe-line-long" />
+            <span className="wireframe-line wireframe-line-short" />
+          </div>
+        </div>
+      </section>
+      <nav className="offline-bottom-menu" aria-label="App navigation">
+        {sections.map((section) => (
+          <button
+            className={activeSection === section.id ? 'active' : ''}
+            type="button"
+            key={section.id}
+            onClick={() => setActiveSection(section.id)}
+          >
+            <section.icon size={20} strokeWidth={2} aria-hidden="true" />
+            <small>{section.label}</small>
+          </button>
+        ))}
+      </nav>
     </main>
   );
 }
@@ -669,7 +814,7 @@ function InstructorDashboard({ contact, user, onSignOut }) {
   const upcoming = overview.bookings.filter((booking) => ['pending', 'confirmed'].includes(booking.status));
   const nextLesson = upcoming[0];
   const initials = (profile.display_name || 'Instructor').slice(0, 2).toUpperCase();
-  const nav = [['home', '⌂', 'Home'], ['schedule', '◷', 'Schedule'], ['students', '●', 'Students'], ['account', '◆', 'Account']];
+  const nav = [['home', Home, 'Home'], ['schedule', CalendarDays, 'Schedule'], ['students', UsersRound, 'Students'], ['account', UserRound, 'Account']];
 
   return (
     <main className="dashboard-page instructor-portal">
@@ -699,7 +844,7 @@ function InstructorDashboard({ contact, user, onSignOut }) {
         {activeTab === 'students' && <InstructorStudents bookings={overview.bookings} />}
         {activeTab === 'account' && <><ProfileEditor profile={profile} endpoint="/api/profiles/account" onSaved={loadOverview} title="Profile" /><InstructorAccount profile={profile} onSaved={loadOverview} /><InstructorAvailability availability={overview.availability} blocks={overview.blocks} onSaved={loadOverview} /></>}
       </div>
-      <nav className="floating-nav" aria-label="Main navigation">{nav.map(([tab, icon, label]) => <button className={activeTab === tab ? 'active' : ''} type="button" key={tab} onClick={() => setActiveTab(tab)}><span>{icon}</span><small>{label}</small></button>)}</nav>
+      <nav className="floating-nav" aria-label="Main navigation">{nav.map(([tab, Icon, label]) => <button className={activeTab === tab ? 'active' : ''} type="button" key={tab} onClick={() => setActiveTab(tab)}><Icon size={20} strokeWidth={2} aria-hidden="true" /><small>{label}</small></button>)}</nav>
       <PortalFooter />
     </main>
   );
@@ -1419,16 +1564,16 @@ function StudentDashboard({ contact, onSignOut }) {
       </div>
       <nav className="bottom-nav" aria-label="Main navigation">
         <button className={activeTab === 'home' ? 'active' : ''} type="button" onClick={() => selectTab('home')}>
-          <span className="nav-icon">⌂</span><span>Home</span>
+          <Home className="nav-icon" size={20} strokeWidth={2} aria-hidden="true" /><span>Home</span>
         </button>
         <button className={activeTab === 'book' ? 'active' : ''} type="button" onClick={() => selectTab('book')}>
-          <span className="nav-icon">＋</span><span>Book</span>
+          <Plus className="nav-icon" size={20} strokeWidth={2} aria-hidden="true" /><span>Book</span>
         </button>
         <button className={activeTab === 'activity' ? 'active' : ''} type="button" onClick={() => selectTab('activity')}>
-          <span className="nav-icon">↗</span><span>Activity</span>
+          <Activity className="nav-icon" size={20} strokeWidth={2} aria-hidden="true" /><span>Activity</span>
         </button>
         <button className={activeTab === 'account' ? 'active' : ''} type="button" onClick={() => selectTab('account')}>
-          <span className="nav-icon">●</span><span>Account</span>
+          <UserRound className="nav-icon" size={20} strokeWidth={2} aria-hidden="true" /><span>Account</span>
         </button>
       </nav>
       <PortalFooter />
