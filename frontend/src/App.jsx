@@ -302,10 +302,11 @@ export default function App() {
 }
 
 function LandingPage({ onSignIn }) {
-  const [previewTotals, setPreviewTotals] = useState(getPreviewTotals);
+  const [targetLessons, setTargetLessons] = useState(() => getPreviewTotals().lessons);
+  const [displayedLessons, setDisplayedLessons] = useState(PREVIEW_COUNTER_BASE_LESSONS);
 
   useEffect(() => {
-    const updateTotals = () => setPreviewTotals(getPreviewTotals());
+    const updateTarget = () => setTargetLessons(getPreviewTotals().lessons);
     const hoursElapsed = Math.max(
       0,
       Math.floor((Date.now() - PREVIEW_COUNTER_START) / PREVIEW_COUNTER_HOUR),
@@ -313,8 +314,8 @@ function LandingPage({ onSignIn }) {
     const nextUpdateAt = PREVIEW_COUNTER_START + (hoursElapsed + 1) * PREVIEW_COUNTER_HOUR;
     let intervalId;
     const timeoutId = window.setTimeout(() => {
-      updateTotals();
-      intervalId = window.setInterval(updateTotals, PREVIEW_COUNTER_HOUR);
+      updateTarget();
+      intervalId = window.setInterval(updateTarget, PREVIEW_COUNTER_HOUR);
     }, Math.max(0, nextUpdateAt - Date.now()));
 
     return () => {
@@ -322,6 +323,15 @@ function LandingPage({ onSignIn }) {
       if (intervalId) window.clearInterval(intervalId);
     };
   }, []);
+
+  useEffect(() => {
+    if (displayedLessons >= targetLessons) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setDisplayedLessons((count) => Math.min(count + 1, targetLessons));
+    }, 1000);
+    return () => window.clearTimeout(timeoutId);
+  }, [displayedLessons, targetLessons]);
 
   return (
     <main className="landing-page">
@@ -362,7 +372,7 @@ function LandingPage({ onSignIn }) {
         <div className="app-screenshot" aria-label="Preview of the FirstGear student dashboard">
           <div className="screenshot-top"><span className="mini-logo">FIRSTGEAR</span><span className="avatar-dot">S</span></div>
           <div className="screenshot-greeting"><small>YOUR NEXT LESSON</small><strong>Behind-the-wheel</strong><span>Thursday · 10:00 · 60 minutes</span></div>
-          <div className="screenshot-grid"><div><small>PROGRESS</small><strong>68%</strong><span className="progress-bar"><i /></span></div><div><small>PAID TO DATE</small><strong>£{previewTotals.paidToDate.toLocaleString('en-GB')}</strong><span>{previewTotals.lessons.toLocaleString('en-GB')} lessons</span></div></div>
+          <div className="screenshot-grid"><div><small>PROGRESS</small><strong>68%</strong><span className="progress-bar"><i /></span></div><div><small>PAID TO DATE</small><strong>£{(displayedLessons * PREVIEW_LESSON_PRICE).toLocaleString('en-GB')}</strong><span>{displayedLessons.toLocaleString('en-GB')} lessons</span></div></div>
           <div className="screenshot-row"><CalendarDays size={17} /><span>View your full schedule</span><b>›</b></div>
         </div>
       </section>
